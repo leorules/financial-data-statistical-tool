@@ -10,7 +10,9 @@ ui.require(inst)
 ui.header("Compare", "Relative performance, risk and drawdowns side by side, for tickers or whole asset classes.")
 with st.container(border=True):
     tickers, groups = ui.subject_picker()
-    log_scale = st.toggle("Log scale")
+    c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
+    stress_periods = ui.stress_picker("compare_stress", c1)
+    log_scale = c2.toggle("Log scale")
 ui.require(tickers, "Pick at least one ticker or asset class.")
 
 prices = resample.last(ui.price_matrix(tickers, s, groups=groups), s.freq).dropna(how="all")
@@ -18,7 +20,9 @@ rebased = prices / prices.bfill().iloc[0] * 100
 r = prices.pct_change(fill_method=None).iloc[1:]
 
 with st.container(border=True):
-    ui.chart(px.line(rebased, log_y=log_scale, title="Growth of 100", labels={"value": "", "date": ""}), height=460)
+    fig = px.line(rebased, log_y=log_scale, title="Growth of 100", labels={"value": "", "date": ""})
+    ui.shade_stress(fig, stress_periods, s)
+    ui.chart(fig, height=460)
     if s.currency == "native" and inst[inst.ticker.isin(tickers)].currency.nunique() > 1:
         st.caption("Mixed currencies in native terms. Choose AUD or USD in the sidebar to compare in one currency.")
 
@@ -34,6 +38,7 @@ with st.container(border=True):
 
 with st.container(border=True):
     fig = px.line(stats.risk.drawdown(r), title="Drawdown from peak", labels={"value": "", "date": ""})
+    ui.shade_stress(fig, stress_periods, s)
     ui.chart(fig.update_yaxes(tickformat=".0%"), height=340)
 
 ui.explain(interpret.compare(table))

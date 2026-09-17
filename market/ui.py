@@ -1,11 +1,12 @@
 """Streamlit helpers shared by every page: sidebar settings, cached loaders, formatting."""
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 
 import pandas as pd
 import streamlit as st
 
-from market import benchmarks, descriptions, filters, indicators, resample, store, universe
+from market import benchmarks, descriptions, filters, indicators, resample, store, stress, universe
+from market.config import MIN_OBS
 from market import returns as rets
 
 RANGES = ["1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y", "10Y", "Max", "Custom"]
@@ -140,7 +141,9 @@ def price_matrix(tickers, s: Settings, field: str = "adj_close", groups: dict | 
 
 
 def return_matrix(tickers, s: Settings, align: str = "inner", groups: dict | None = None) -> pd.DataFrame:
-    r = rets.compute(price_matrix(tickers, s, groups=groups), s.freq, s.kind, align)
+    prices = price_matrix(tickers, s, groups=groups)
+    minimum = min(MIN_OBS, max(5, len(prices) // 2))  # short stress windows need a lower bar than a 5-year range
+    r = rets.compute(prices, s.freq, s.kind, align, minimum)
     if r.attrs.get("dropped"):
         st.caption(f"Skipped (not enough data in range): {', '.join(r.attrs['dropped'])}")
     return r
@@ -244,6 +247,39 @@ def chart(fig, container=None, height: int | None = None) -> None:
     fig.update_traces(line_width=2, selector=dict(type="scatter", mode="lines"))
     fig.update_traces(marker_size=7, selector=dict(type="scatter", mode="markers"))
     (container or st).plotly_chart(fig)
+
+
+def stress_picker(key: str, container=None) -> list[str]:
+    """Choose which stress periods to shade on this page's charts."""
+    return (container or st).multiselect(
+        "Stress periods on chart", [p.name for p in stress.catalogue()], key=key, placeholder="None",
+        help="Shade these crisis and shock windows on the charts below")
+
+
+def stress_window(key: str, s: Settings, container=None):
+    """Optionally narrow a page's analysis to one stress period instead of the sidebar date range."""
+    periods = stress.catalogue()
+    labels = ["Sidebar date range"] + [p.label for p in periods]
+    choice = (container or st).selectbox("Analysis window", labels, key=key,
+                                         help="Run this page over a past crisis or shock instead of the sidebar range")
+    if choice == labels[0]:
+        return s, None
+    period = periods[labels.index(choice) - 1]
+    return replace(s, start=pd.Timestamp(period.start).date(), end=pd.Timestamp(period.end).date()), period
+
+
+def stress_caption(period) -> None:
+    if period:
+        st.caption(f"Analysing the {period.name} window ({period.start} to {period.end}): {period.description}")
+
+
+def shade_stress(fig, names, s: Settings, subplots: bool = False) -> None:
+    """Shade the chosen stress periods where they fall inside the chart's date range."""
+    visible = [p for p in stress.overlapping(s.start, s.end) if p.name in set(names or ())]
+    for period in visible:
+        fig.add_vrect(x0=period.start, x1=period.end, fillcolor=MUTED, opacity=0.14, line_width=0, layer="below",
+                      annotation_text=period.name if len(visible) <= 8 else None, annotation_position="top left",
+                      annotation_font_size=10, **({"row": "all", "col": 1} if subplots else {}))
 
 
 def market_tiles(tickers: list[str] = MARKETS) -> None:

@@ -13,13 +13,19 @@ ui.header("Correlation & Covariance", "How tickers or asset classes move togethe
                                      "and portfolios.")
 with st.container(border=True):
     tickers, groups = ui.subject_picker()
-    c1, c2 = st.columns([4, 1], vertical_alignment="bottom")
+    c1, c2, c3 = st.columns([3, 2, 1], vertical_alignment="bottom")
     method = c1.segmented_control("Matrix", ["pearson", "spearman", "kendall", "partial", "covariance"],
                                   default="pearson", required=True)
-    clustered = c2.toggle("Cluster", value=True, help="Order columns so similar ones sit together")
+    s, period = ui.stress_window("correlation_window", s, c2)
+    clustered = c3.toggle("Cluster", value=True, help="Order columns so similar ones sit together")
+    ui.stress_caption(period)
 ui.require(tickers[1:], "Pick at least two tickers or asset classes.")
 r = ui.return_matrix(tickers, s, groups=groups)
-ui.require(r.columns[1:], "Need at least two tickers with enough overlapping data.")
+ui.require(r.columns[1:], f"No overlapping data for these series in the {period.name} window." if period else
+           "Need at least two tickers with enough overlapping data.")
+if len(r) < 10:
+    st.warning(f"Only {len(r)} return observations in this window; correlations will be very unreliable.",
+               icon=":material/warning:")
 
 corr = corr_mod.matrix(r, "pearson" if method in ("partial", "covariance") else method)
 matrix = {"partial": corr_mod.partial, "covariance": corr_mod.covariance}.get(method, lambda x: corr)(r)

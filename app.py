@@ -19,10 +19,12 @@ page = st.navigation({
         st.Page("pages/asset_classes.py", title="Asset Classes", icon=":material/category:"),
         st.Page("pages/screener.py", title="Screener", icon=":material/filter_alt:"),
         st.Page("pages/compare.py", title="Compare", icon=":material/stacked_line_chart:"),
+        st.Page("pages/portfolio.py", title="Portfolio", icon=":material/account_balance_wallet:"),
     ],
     "Analyse": [
         st.Page("pages/correlation.py", title="Correlation", icon=":material/grid_on:"),
         st.Page("pages/statistics.py", title="Statistics", icon=":material/functions:"),
+        st.Page("pages/scenarios.py", title="Stress Periods", icon=":material/history:"),
         st.Page("pages/code_lab.py", title="Code Lab", icon=":material/code:"),
     ],
     "Data": [st.Page("pages/data_manager.py", title="Data Manager", icon=":material/database:")],

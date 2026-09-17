@@ -41,9 +41,11 @@ with st.container(border=True):
     ticker = c3.selectbox("Instrument", tickers, index=tickers.index("^AXJO") if "^AXJO" in tickers else 0,
                           format_func=ui.label)
     smas = c4.multiselect("Moving averages", [20, 50, 100, 200], default=[50, 200])
-    vol_windows = st.multiselect("Rolling volatility on chart", VOL_WINDOWS, default=VOL_WINDOWS[:2],
+    c5, c6 = st.columns(2)
+    vol_windows = c5.multiselect("Rolling volatility on chart", VOL_WINDOWS, default=VOL_WINDOWS[:2],
                                  format_func=lambda n: f"{n} {PERIOD}s",
                                  help="Annualised standard deviation of returns over each trailing window")
+    stress_periods = ui.stress_picker("overview_stress", c6)
 
 daily = ui.prices((ticker,)).set_index("date").drop(columns="ticker")
 bars = resample.ohlcv(daily, s.freq)
@@ -90,6 +92,7 @@ fig.add_hline(y=risk.vol_ann, line_dash="dot", line_color=ui.MUTED, row=2, col=1
               annotation_text=f"range average {risk.vol_ann:.1%}", annotation_position="top right")
 fig.update_yaxes(tickformat=".0%", rangemode="tozero", row=2, col=1)
 fig.update_layout(xaxis_rangeslider_visible=False, title=ui.label(ticker))
+ui.shade_stress(fig, stress_periods, s, subplots=True)
 with st.container(border=True):
     ui.chart(fig, height=640)
 

@@ -16,6 +16,9 @@ CREATE TABLE IF NOT EXISTS prices(
 CREATE TABLE IF NOT EXISTS profiles(
     ticker VARCHAR PRIMARY KEY, summary VARCHAR, sector VARCHAR, industry VARCHAR, website VARCHAR,
     fetched TIMESTAMP);
+CREATE TABLE IF NOT EXISTS portfolios(name VARCHAR PRIMARY KEY, cash DOUBLE, benchmark VARCHAR);
+CREATE TABLE IF NOT EXISTS holdings(
+    portfolio VARCHAR, ticker VARCHAR, units DOUBLE, cost_price DOUBLE, PRIMARY KEY (portfolio, ticker));
 CREATE TABLE IF NOT EXISTS ingest_log(
     ticker VARCHAR PRIMARY KEY, first_date DATE, last_date DATE,
     last_run TIMESTAMP, status VARCHAR, error VARCHAR);

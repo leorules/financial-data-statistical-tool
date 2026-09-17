@@ -168,9 +168,13 @@ def descriptive(table: pd.DataFrame, focus: str, returns: bool, freq: str, serie
     ann_vol, ann_mean = row["std"] * np.sqrt(ppy), row["mean"] * ppy
     payoff = gains.mean() / -losses.mean()
     extremes, expected = int(row.outliers_z3), len(r) * 0.0027
+    short = len(r) < 60
+    headline = (f"Over these {len(r)} {period}s {focus} returned {pct(row.cum_return, 1, True)} with "
+                f"{vol_level(ann_vol)} volatility ({pct(ann_vol)} annualised)" if short else
+                f"{focus} compounded {pct(row.cagr, sign=True)} a year with {vol_level(ann_vol)} volatility "
+                f"({pct(ann_vol)} annualised)")
     reading = Reading(
-        f"{focus} compounded {pct(row.cagr, sign=True)} a year with {vol_level(ann_vol)} volatility "
-        f"({pct(ann_vol)} annualised)" + (", and its returns have fat tails." if row["kurtosis"] > 1 else "."),
+        headline + (", and its returns have fat tails." if row["kurtosis"] > 1 else "."),
         findings=[
             f"**Growth:** {money(STAKE)} at the start would now be about {money(STAKE * (1 + row.cum_return))} "
             f"({pct(row.cum_return, 0, True)} over {len(r)} {period}s).",
@@ -208,9 +212,11 @@ def descriptive(table: pd.DataFrame, focus: str, returns: bool, freq: str, serie
     return reading
 
 
-def rolling(risk: pd.DataFrame, window: int, freq: str, focus: str) -> Reading:
+def rolling(risk: pd.DataFrame, window: int, freq: str, focus: str) -> Reading | None:
     period = PERIOD[freq]
     vol = risk["rolling vol"].dropna()
+    if vol.empty:
+        return None
     rank = (vol <= vol.iloc[-1]).mean()
     reading = Reading(
         f"{owner(focus)} volatility is {pct(vol.iloc[-1])}, "
@@ -348,6 +354,7 @@ def hypothesis(mean_test: pd.Series, comparison: pd.DataFrame, ci: pd.Series, st
 
 def risk(table: pd.DataFrame, focus: str, bench: str | None, series: pd.Series) -> Reading:
     row = table.loc[focus]
+    short = len(series.dropna()) < 60
     current_dd = float((1 + series.dropna()).cumprod().pipe(lambda w: w.iloc[-1] / w.max() - 1))
     recovery_gain = -row.max_drawdown / (1 + row.max_drawdown)
     reading = Reading(
@@ -369,8 +376,10 @@ def risk(table: pd.DataFrame, focus: str, bench: str | None, series: pd.Series) 
         ],
         implications=[f"Losses compound asymmetrically: recovering from a {pct(row.max_drawdown, 0)} fall needs a "
                       f"{pct(recovery_gain, 0, True)} gain."],
-        caveats=["Sharpe and Sortino assume a stable return distribution; fat tails and regime changes make them look "
-                 f"better than the risk really is. The cash rate is a fixed {RISK_FREE:.0%} assumption.", PAST],
+        caveats=(["Annualised figures from fewer than 60 observations are arithmetic extrapolations of a short "
+                  "window, not an expectation for a full year."] if short else [])
+                + ["Sharpe and Sortino assume a stable return distribution; fat tails and regime changes make them look "
+                   f"better than the risk really is. The cash rate is a fixed {RISK_FREE:.0%} assumption.", PAST],
         terms=["Sharpe ratio", "Sortino ratio", "Max drawdown", "Calmar ratio", "Ulcer index"],
     )
     if bench and pd.notna(row.get("beta")):
@@ -710,3 +719,134 @@ def risk_table(table: pd.DataFrame, group: str, period: str) -> Reading | None:
     if group in ("Rates", "Currencies"):
         reading.caveats.insert(0, "For yields and exchange rates these are changes in the rate itself, not investment returns.")
     return reading
+
+
+def duration(days: float) -> str:
+    return "n/a" if pd.isna(days) else f"{days:.0f} days" if days < 60 else f"{days / 30.4:.0f} months" \
+        if days < 730 else f"{days / 365.25:.1f} years"
+
+
+def stress_period(period, table: pd.DataFrame, corr_before: float, corr_during: float, basket: pd.Series | None,
+                  amount: float, horizon: str) -> Reading | None:
+    """Reading for how a set of series behaved through a stress period."""
+    if table.empty:
+        return None
+    moves = table.event_return
+    worst, best = moves.idxmin(), moves.idxmax()
+    deepest = table.trough_return.idxmin()
+    recovered, pending = table[table.recovery_date.notna()], table[table.recovery_date.isna()]
+    headline = (f"Through the {period.name} ({period.span}), **{worst}** moved {pct(moves.iloc[0], 1, True)}."
+                if len(table) == 1 else
+                f"Through the {period.name} ({period.span}), **{worst}** fell the most ({pct(moves.min(), 1, True)}) "
+                f"and **{best}** held up best ({pct(moves.max(), 1, True)}).")
+    reading = Reading(
+        headline,
+        findings=[
+            f"**Typical move:** median {pct(moves.median(), 1, True)} across {len(table)} series; "
+            f"{pct((moves < 0).mean(), 0)} ended the window lower.",
+            f"**Deepest point:** {deepest} was down {pct(-table.trough_return.min())} at its low on "
+            f"{pd.Timestamp(table.trough_date[deepest]):%d %b %Y}.",
+            f"**Volatility:** median annualised volatility went from {pct(table.vol_before.median())} in the year before "
+            f"to {pct(table.vol_during.median())} during the stress period ({table.vol_ratio.median():.1f}×).",
+            f"**Worst single day:** {table.worst_day.idxmin()} at {pct(table.worst_day.min(), 1, True)}.",
+        ],
+        implications=[],
+        caveats=["Stress-period windows are defined on the S&P 500's peak and trough; other markets turned on different days.",
+                 "Series without price history before the period start are excluded.",
+                 "Every crisis has different causes, so past behaviour is a stress test, not a forecast.", PAST],
+        terms=["Max drawdown", "Standard deviation", "Correlation"],
+    )
+    if len(recovered):
+        slowest = recovered.days_to_recover.idxmax()
+        reading.findings.append(f"**Recovery:** {len(recovered)} of {len(table)} regained their pre-event level; the "
+                                f"median took {duration(recovered.days_to_recover.median())} from the event start "
+                                f"and the slowest, {slowest}, {duration(recovered.days_to_recover.max())}.")
+    if len(pending):
+        reading.findings.append(f"**Not yet recovered:** {', '.join(pending.index[:6])}"
+                                f"{'…' if len(pending) > 6 else ''} remain below their pre-event level.")
+    gainers = moves[moves > 0]
+    reading.implications.append(
+        f"{', '.join(gainers.index[:5])} rose during the stress period, the kind of holdings that cushioned losses elsewhere."
+        if len(gainers) else "Nothing in this selection rose during the stress period, so it offered no true shelter.")
+    if pd.notna(corr_before) and pd.notna(corr_during):
+        shift = corr_during - corr_before
+        reading.implications.append(
+            f"Average correlation moved from {corr_before:.2f} in the year before to {corr_during:.2f} during the stress period"
+            + (": assets moved together far more, so diversification weakened just when it was needed."
+               if shift > 0.15 else ": diversification broadly held up." if shift > -0.15
+               else ": assets moved more independently than usual."))
+    if basket is not None and len(basket):
+        at_end = basket[:pd.Timestamp(period.end)].iloc[-1]
+        reading.implications.append(
+            f"**Stress test:** a {money(amount)} buy-and-hold basket would have been worth {money(amount * at_end)} "
+            f"at the end of the period ({pct(at_end - 1, 1, True)}), {money(amount * basket.min())} at its lowest "
+            f"({pct(basket.min() - 1, 1, True)}) and {money(amount * basket.iloc[-1])} {horizon} later "
+            f"({pct(basket.iloc[-1] - 1, 1, True)}). If a similar stress period repeated, that is the kind of swing to be "
+            "prepared for.")
+    return reading
+
+
+def portfolio(positions: pd.DataFrame, contribution: pd.DataFrame, risk_table: pd.DataFrame, risk: pd.Series,
+              benchmark: str, value: pd.Series, cash: float) -> Reading:
+    """Reading for a portfolio: concentration, what drove returns, where the risk sits, and stress behaviour."""
+    top, bottom = contribution.iloc[0], contribution.iloc[-1]
+    biggest = positions.weight.idxmax()
+    cash_weight = cash / value.iloc[-1] if value.iloc[-1] else 0
+    period_return = value.iloc[-1] / value.iloc[0] - 1
+    reading = Reading(
+        f"The portfolio is worth {money(value.iloc[-1])} across {len(positions)} holdings and returned "
+        f"{pct(period_return, 1, True)} over this range, with {pct(risk.ann_vol)} volatility.",
+        findings=[
+            f"**Concentration:** the largest holding is {biggest} at {pct(positions.weight.max(), 0)}; the top three "
+            f"are {pct(positions.weight.nlargest(3).sum(), 0)} of the portfolio"
+            + (f", and cash is {pct(cash_weight, 0)}." if cash_weight > 0.005 else "."),
+            f"**What drove the return:** {top.name} added {pct(top.contribution, 1, True)} and {bottom.name} "
+            f"{pct(bottom.contribution, 1, True)}. Contributions combine each holding's return with how much of the "
+            "portfolio it was.",
+            f"**Unrealised profit:** {money(positions.profit.sum())} against a cost base of "
+            f"{money(positions.cost.sum())} ({pct(positions.profit.sum() / positions.cost.sum(), 1, True)}), which is "
+            "a different figure from the period return because it runs from when you bought.",
+        ],
+        implications=[],
+        caveats=["Returns here follow market value only: contributions, withdrawals, dividends, brokerage and tax are "
+                 "not included, so this is not a true time-weighted or money-weighted return.",
+                 "Holdings priced in different currencies are added together as they are unless a currency is chosen "
+                 "in the sidebar.", PAST],
+        terms=["Standard deviation", "Sharpe ratio", "Beta", "Tracking error", "Information ratio", "Max drawdown",
+               "VaR", "Correlation"],
+    )
+    if len(risk_table):
+        riskiest = risk_table.index[0]
+        gap = risk_table.share_of_risk[riskiest] - risk_table.weight[riskiest]
+        reading.findings.append(
+            f"**Where the risk sits:** {riskiest} is {pct(risk_table.weight[riskiest], 0)} of the money but "
+            f"{pct(risk_table.share_of_risk[riskiest], 0)} of the volatility"
+            + (", so it carries more risk than its size suggests." if gap > 0.05 else "."))
+    if pd.notna(risk.get("beta")):
+        reading.implications.append(
+            f"Against {benchmark}, beta is {risk.beta:.2f} and tracking error {pct(risk.tracking_error)}, giving an "
+            f"information ratio of {risk.information_ratio:.2f}: "
+            + ("consistent value added versus simply holding the benchmark." if risk.information_ratio > 0.5
+               else "little consistent difference from the benchmark after allowing for the extra risk."
+               if risk.information_ratio > -0.5 else "consistent underperformance against the benchmark."))
+    reading.implications.append(
+        f"The worst fall from a peak in this range was {pct(risk.max_drawdown)}"
+        + (", and it has since recovered." if pd.notna(risk.recovery) else ", and it has not yet recovered."))
+    return reading
+
+
+def portfolio_stress(stress_table: pd.DataFrame, value: float) -> list[str]:
+    """Extra lines about how today's portfolio would have behaved in past stress periods."""
+    if stress_table.empty:
+        return []
+    worst = stress_table.iloc[0]
+    partial = stress_table[stress_table.covered < 0.999]
+    lines = [f"**Stress history:** applying today's weights to past crises, the worst was {worst.name} "
+             f"({pct(worst['return'], 1, True)}, low {pct(worst.worst, 1, True)}), which on {money(value)} today would "
+             f"be about {money(value * (1 + worst.worst))} at the bottom.",
+             f"The median stress period cost {pct(stress_table['return'].median(), 1, True)}, and "
+             f"{pct((stress_table['return'] > 0).mean(), 0)} of them ended positive."]
+    if len(partial):
+        lines.append(f"{len(partial)} periods only had data for part of the portfolio, so those figures cover the "
+                     "holdings that existed at the time.")
+    return lines

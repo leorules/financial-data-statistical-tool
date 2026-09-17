@@ -34,6 +34,8 @@ in `market/interpret.py`. Free, instant and offline.
 | Compare | Rebased performance, risk table, drawdowns (tickers or asset classes) |
 | Correlation | Correlation/covariance matrices, p-values, pair analysis, PCA, portfolios (tickers or asset classes) |
 | Statistics | Descriptive, rolling, distribution, hypothesis tests, risk, regression, time series, seasonality (tickers or asset classes) |
+| Portfolio | Holdings with cost base and cash: value vs benchmark, positions, contribution to return, contribution to risk, portfolio risk metrics, and the portfolio through past stress periods |
+| Stress Periods | Pick a stress period (Great Depression, GFC, COVID-19 crash…) or add your own: indexed chart, per-series impact, volatility and recovery times, correlation shift, basket stress test |
 | Code Lab | Python editor with `prices()`, `returns()`, `stats`, `px`, `plt`, `show()` preloaded |
 | Data Manager | Refresh data, custom tickers, ingest log |
 
@@ -50,6 +52,8 @@ On the analysis pages, **Analyse → Asset classes** represents each asset class
 | Currencies | ICE US Dollar Index (DXY) | – | AUD/USD |
 | Crypto | Bloomberg Galaxy Crypto Index, BTC-USD as proxy | – | – |
 | Alternatives | HFRI Fund Weighted Composite, QAI as proxy | – | – |
+
+Stress periods (`market/stress.py`) run from the 1929 Wall Street Crash to the April 2025 tariff shock. Choose them on the **Stress Periods** page, or shade any of them on a chart with the **Stress periods on chart** picker that sits on the Overview, Compare and Portfolio pages (none shown by default). On Correlation and Statistics, the **Analysis window** picker runs the whole page over one stress period instead of the sidebar range. Custom periods are saved to `data/stress_periods.json`. Only the S&P 500 has data before 1971.
 
 The sidebar sets the date range, interval, return type, currency and basket for every page.
 

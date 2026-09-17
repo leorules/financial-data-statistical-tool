@@ -21,14 +21,21 @@ ui.header("Statistics", "Descriptive statistics, distributions, significance tes
                         "analysis for tickers or whole asset classes.")
 with st.container(border=True):
     tickers, groups = ui.subject_picker()
-    series = st.segmented_control("Series", ["Returns", "Price"] + ([] if groups else ["Volume"]), default="Returns",
+    c1, c2 = st.columns([1, 2], vertical_alignment="bottom")
+    series = c1.segmented_control("Series", ["Returns", "Price"] + ([] if groups else ["Volume"]), default="Returns",
                                   required=True)
+    s, period = ui.stress_window("statistics_window", s, c2)
+    ui.stress_caption(period)
     section = st.segmented_control("Analysis", list(SECTIONS), default="Descriptive", required=True,
                                    format_func=lambda x: f"{SECTIONS[x]} {x}")
 ui.require(tickers, "Pick at least one ticker or asset class.")
 
 data = ui.series_matrix(tickers, s, series, groups)
-ui.require(data.columns, "No data in the selected range.")
+ui.require(data.columns, f"No overlapping data for these series in the {period.name} window." if period else
+           "No data in the selected range.")
+if len(data) < 20:
+    st.warning(f"Only {len(data)} observations in this window. Tests and rolling statistics need more data than this, "
+               "so treat anything below as indicative.", icon=":material/warning:")
 returns = data if series == "Returns" else ui.return_matrix(tickers, s, groups=groups)
 prices = ui.series_matrix(tickers, s, "Price", groups)
 cols = list(data.columns)
@@ -69,9 +76,12 @@ if section == "Descriptive":
     reading = interpret.descriptive(table, focus, series == "Returns", s.freq, x)
 
 elif section == "Rolling":
+    longest = max(5, min(252, len(x) // 2))
+    if longest < 10:
+        st.info(f"Only {len(x)} observations in this window: too few for rolling statistics.")
     with card():
         c1, c2 = st.columns([1, 2])
-        window = c1.slider("Window", 5, 252, 63 if s.freq == "D" else 26)
+        window = c1.slider("Window", 5, longest, min(63 if s.freq == "D" else 26, longest))
         moments = stats.rolling.moments(x, window)
         picked = c2.multiselect("Statistics", list(moments.columns), default=["mean", "std"])
         line(moments[picked], f"Rolling {window}-period statistics: {focus} ({series.lower()})")
@@ -198,6 +208,10 @@ elif section == "Regression":
     reading = interpret.regression(coefficients, diagnostics, trend, y_name, series == "Returns", s.freq,
                                    prices[focus], line_fit)
 
+elif section == "Time Series" and len(x) < 40:
+    st.info(f"Only {len(x)} observations in this window. Stationarity, autocorrelation, cointegration and Granger "
+            "tests need roughly 40 or more, so they are not shown here.")
+
 elif section == "Time Series":
     level = np.log(prices[focus].dropna())
     rf = returns[focus]
@@ -213,16 +227,17 @@ elif section == "Time Series":
         kind = "mean-reverting" if h < 0.45 else "trending" if h > 0.55 else "close to a random walk"
         st.metric("Hurst exponent (log price)", f"{h:.3f}", kind, delta_color="off", delta_arrow="off",
                   border=True, width=260, help="Below 0.5 mean-reverting · 0.5 random walk · above 0.5 trending")
-    ac = stats.timeseries.autocorr(x, 20)
+    lags = min(20, len(x) // 2 - 1)
+    ac = stats.timeseries.autocorr(x, lags)
     with card():
         fig = make_subplots(rows=1, cols=2, subplot_titles=["ACF", "PACF"])
         for i, col in enumerate(["acf", "pacf"], start=1):
             fig.add_bar(x=ac.lag[1:], y=ac[col][1:], row=1, col=i, marker_color=ui.series_color(1))
             for sign in (1, -1):
                 fig.add_hline(y=sign * ac.bound[0], line_dash="dot", line_color=ui.MUTED, row=1, col=i)
-        ui.chart(fig.update_layout(title=f"Autocorrelation: {focus} ({series.lower()})"), height=320)
+        ui.chart(fig.update_layout(title=f"Autocorrelation: {focus} ({series.lower()}), {lags} lags"), height=320)
     with card():
-        period = st.number_input("STL seasonal period", 2, 260, SEASON_PERIOD[s.freq])
+        period = st.number_input("STL seasonal period", 2, max(3, len(x) // 2), min(SEASON_PERIOD[s.freq], len(x) // 2))
         parts = stats.timeseries.decompose(x, int(period))
         fig = make_subplots(rows=4, cols=1, shared_xaxes=True, subplot_titles=list(parts.columns), vertical_spacing=0.05)
         for i, col in enumerate(parts.columns, start=1):
