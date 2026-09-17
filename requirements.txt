@@ -1,0 +1,15 @@
+streamlit
+streamlit-ace
+yfinance
+duckdb
+pandas
+numpy
+scipy
+statsmodels
+plotly
+matplotlib
+scikit-learn
+seaborn
+lxml
+requests
+pytest

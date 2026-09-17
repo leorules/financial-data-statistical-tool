@@ -1,0 +1,91 @@
+import plotly.express as px
+import plotly.graph_objects as go
+import streamlit as st
+
+from market import interpret, stats, ui
+
+s = ui.settings()
+inst = ui.instruments()
+ui.require(inst)
+corr_mod, mv = stats.correlation, stats.multivariate
+
+ui.header("Correlation & Covariance", "How tickers or asset classes move together: matrices, pairs, common factors "
+                                     "and portfolios.")
+with st.container(border=True):
+    tickers, groups = ui.subject_picker()
+    c1, c2 = st.columns([4, 1], vertical_alignment="bottom")
+    method = c1.segmented_control("Matrix", ["pearson", "spearman", "kendall", "partial", "covariance"],
+                                  default="pearson", required=True)
+    clustered = c2.toggle("Cluster", value=True, help="Order columns so similar ones sit together")
+ui.require(tickers[1:], "Pick at least two tickers or asset classes.")
+r = ui.return_matrix(tickers, s, groups=groups)
+ui.require(r.columns[1:], "Need at least two tickers with enough overlapping data.")
+
+corr = corr_mod.matrix(r, "pearson" if method in ("partial", "covariance") else method)
+matrix = {"partial": corr_mod.partial, "covariance": corr_mod.covariance}.get(method, lambda x: corr)(r)
+order = corr_mod.cluster_order(corr) if clustered else list(r.columns)
+matrix = matrix.loc[order, order]
+limit = 1 if method != "covariance" else matrix.abs().max().max()
+
+with st.container(border=True):
+    st.caption(f"{len(r)} {ui.FREQS[s.freq].lower()} {s.kind} returns · {r.index[0]:%d %b %Y} – {r.index[-1]:%d %b %Y}")
+    if s.freq == "D" and 0 < r.columns.str.endswith(".AX").sum() < len(r.columns):
+        st.caption("ASX and US markets close at different times. Weekly returns give fairer cross-market correlations.")
+    fig = px.imshow(matrix, text_auto=".2f" if len(order) <= 20 else False, aspect="auto",
+                    color_continuous_scale=ui.diverging(), zmin=-limit, zmax=limit)
+    ui.chart(fig.update_layout(coloraxis_colorbar=dict(thickness=10)), height=max(420, 30 * len(order)))
+    ui.download(matrix, f"{method}_matrix")
+
+pvals = corr_mod.pvalues(r, "pearson" if method in ("partial", "covariance") else method).loc[order, order]
+explained, loadings = mv.pca(r)
+pairs = corr_mod.pairs(corr)
+pairs_tab, pvalue_tab, pair_tab, pca_tab, port_tab = st.tabs(
+    ["Top pairs", "Significance", "Pair analysis", "PCA", "Portfolios"])
+
+with pairs_tab:
+    left, right = st.columns(2)
+    left.markdown("**Most correlated**")
+    left.dataframe(pairs.head(10), hide_index=True, column_config={"corr": ui.NUM})
+    right.markdown("**Least correlated**")
+    right.dataframe(pairs.tail(10).iloc[::-1], hide_index=True, column_config={"corr": ui.NUM})
+
+with pvalue_tab:
+    st.caption("P-values for H0: no correlation. Darker cells (p < 0.05) are statistically significant.")
+    fig = px.imshow(pvals, text_auto=".3f" if len(order) <= 20 else False, aspect="auto", zmin=0, zmax=0.1,
+                    color_continuous_scale=ui.sequential()[::-1])
+    ui.chart(fig.update_layout(coloraxis_colorbar=dict(thickness=10)), height=max(420, 30 * len(order)))
+
+with pair_tab:
+    c1, c2, c3 = st.columns(3)
+    a = c1.selectbox("A", r.columns, index=0, format_func=ui.label)
+    b = c2.selectbox("B", r.columns, index=1, format_func=ui.label)
+    window = c3.slider("Rolling window", 10, 252, 63 if s.freq == "D" else 26)
+    rolling = stats.rolling.corr(r[a], r[b], window).rename(f"{window}-period correlation")
+    fig = px.line(rolling, title=f"Rolling correlation: {a} vs {b}", labels={"value": "", "date": ""})
+    fig.add_hline(y=corr.loc[a, b], line_color=ui.MUTED, annotation_text=f"full period {corr.loc[a, b]:.2f}")
+    ui.chart(fig, height=300)
+    left, right = st.columns(2)
+    ui.chart(px.scatter(r, x=b, y=a, trendline="ols", opacity=0.45, title="Return scatter with OLS fit"), left)
+    lag = corr_mod.lead_lag(r[a], r[b], 10)
+    ui.chart(px.bar(lag, x="lag", y="corr", title="Lead–lag (positive lag: B leads A)"), right)
+    st.dataframe(stats.regression.capm(r[a], r[b]).to_frame(f"{a} ~ {b}").T, hide_index=True)
+
+with pca_tab:
+    fig = go.Figure([go.Bar(x=explained.component, y=explained.explained, name="Explained"),
+                     go.Scatter(x=explained.component, y=explained.cumulative, name="Cumulative", mode="lines+markers")])
+    ui.chart(fig.update_layout(title="Explained variance", yaxis_tickformat=".0%"), height=320)
+    st.caption(f"PC1 explains {explained.explained.iloc[0]:.0%} of the basket's variance. A high share means the "
+               "tickers mostly move together with one common factor.")
+    k = min(5, len(loadings.columns))
+    fig = px.imshow(loadings.iloc[:, :k], text_auto=".2f", aspect="auto", color_continuous_scale=ui.diverging(),
+                    zmin=-1, zmax=1, title="Loadings")
+    ui.chart(fig, height=max(320, 28 * len(loadings)))
+
+with port_tab:
+    table, weights = mv.portfolios(r)
+    st.dataframe(table, column_config=ui.percent(table, ["ann_return", "ann_vol"])
+                 | {"sharpe": ui.NUM, "diversification_ratio": ui.NUM})
+    fig = px.bar(weights, barmode="group", title="Weights", labels={"value": "", "index": ""})
+    ui.chart(fig.update_yaxes(tickformat=".0%"), height=360)
+
+ui.explain(interpret.correlation(corr, pvals, pairs, explained, method, r))

@@ -1,0 +1,296 @@
+"""Streamlit helpers shared by every page: sidebar settings, cached loaders, formatting."""
+from dataclasses import dataclass
+from datetime import date, timedelta
+
+import pandas as pd
+import streamlit as st
+
+from market import benchmarks, descriptions, filters, indicators, resample, store, universe
+from market import returns as rets
+
+RANGES = ["1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y", "10Y", "Max", "Custom"]
+DAYS = {"1M": 31, "3M": 92, "6M": 183, "1Y": 365, "3Y": 1096, "5Y": 1827, "10Y": 3653}
+FREQS = {"D": "Daily", "W": "Weekly", "M": "Monthly"}
+CURRENCIES = ["native", "AUD", "USD"]
+DEFAULT_BASKET = ["^AXJO", "^GSPC", "BHP.AX", "RIO.AX", "FMG.AX", "CBA.AX", "SPY"]
+PCT = st.column_config.NumberColumn(format="percent")
+NUM = st.column_config.NumberColumn(format="%.3f")
+UP, DOWN = "#0ca30c", "#d03b3b"
+MUTED = "#898781"
+MARKETS = ["^AXJO", "^GSPC", "^N225", "^FTSE", "GC=F", "CL=F", "^TNX", "AUDUSD=X"]
+FILTERS = {"asset_class": "Asset class", "exchange": "Region", "universe": "List", "sector": "Sector", "type": "Type"}
+SERIES = {"light": ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"],
+          "dark": ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"]}
+BENCHMARK_DEFAULT = ["Equities", "Fixed income", "Cash", "Commodities", "Real estate", "Currencies"]
+BLUES = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
+
+
+@dataclass(frozen=True)
+class Settings:
+    start: date | None
+    end: date
+    freq: str
+    kind: str
+    currency: str
+    basket: tuple[str, ...]
+
+
+@st.cache_data(ttl=300)
+def instruments() -> pd.DataFrame:
+    loaded = store.query("SELECT DISTINCT ticker FROM prices")["ticker"]
+    return universe.sort(store.instruments().merge(loaded, on="ticker"))
+
+
+@st.cache_resource(ttl=300)
+def names() -> dict[str, str]:
+    return instruments().set_index("ticker")["name"].to_dict()
+
+
+@st.cache_data(ttl=300)
+def prices(tickers: tuple[str, ...], start=None, end=None) -> pd.DataFrame:
+    return store.prices(list(tickers), start, end)
+
+
+@st.cache_data(ttl=300)
+def snapshot(tickers: tuple[str, ...], as_of: date) -> pd.DataFrame:
+    long = store.prices([*tickers, "^AXJO", "^GSPC"], as_of - timedelta(days=420), as_of)
+    return indicators.snapshot(long)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def description(ticker: str) -> dict:
+    return descriptions.describe(instruments().set_index("ticker", drop=False).loc[ticker])
+
+
+def clear_cache() -> None:
+    st.cache_data.clear()
+    st.cache_resource.clear()
+
+
+def label(ticker: str) -> str:
+    name = names().get(ticker)
+    return f"{ticker} · {name}" if name and name != ticker else ticker
+
+
+def _start(choice: str, end: date) -> date | None:
+    return None if choice == "Max" else date(end.year, 1, 1) if choice == "YTD" else end - timedelta(days=DAYS[choice])
+
+
+def sidebar() -> Settings:
+    ss, qp = st.session_state, st.query_params
+    tickers = instruments()["ticker"].tolist()
+    ss.setdefault("range", qp.get("range") if qp.get("range") in RANGES else "5Y")
+    ss.setdefault("freq", qp.get("freq") if qp.get("freq") in FREQS else "D")
+    ss.setdefault("kind", "simple")
+    ss.setdefault("currency", "native")
+    ss.setdefault("basket", qp.get("basket", ",".join(DEFAULT_BASKET)).split(","))
+    if "pending_basket" in ss:
+        ss.basket = ss.pop("pending_basket")
+    ss.basket = [t for t in ss.basket if t in tickers]
+
+    with st.sidebar:
+        st.caption("SETTINGS")
+        st.selectbox("Date range", RANGES, key="range")
+        end = date.today()
+        start = None if ss.range == "Custom" else _start(ss.range, end)
+        if ss.range == "Custom":
+            picked = st.date_input("From / to", value=(end - timedelta(days=365), end))
+            start, end = (picked[0], picked[-1]) if len(picked) else (None, end)
+        st.segmented_control("Interval", list(FREQS), key="freq", format_func=FREQS.get, required=True)
+        st.segmented_control("Returns", ["simple", "log"], key="kind", required=True)
+        st.selectbox("Currency", CURRENCIES, key="currency",
+                     help="Convert prices with AUDUSD=X. 'native' keeps each instrument's own currency.")
+        st.multiselect("Basket", tickers, key="basket", format_func=label,
+                       help="Default tickers for Compare, Correlation, Statistics and Code Lab.")
+
+    qp.update(range=ss.range, freq=ss.freq, basket=",".join(ss.basket))
+    ss.settings = Settings(start, end, ss.freq, ss.kind, ss.currency, tuple(ss.basket))
+    return ss.settings
+
+
+def settings() -> Settings:
+    return st.session_state.settings
+
+
+def set_basket(tickers: list[str]) -> None:
+    st.session_state.pending_basket = list(tickers)
+    st.rerun()
+
+
+def require(items, message: str = "No data yet. Load some in **Data Manager**.") -> None:
+    if not len(items):
+        st.info(message)
+        st.stop()
+
+
+def price_matrix(tickers, s: Settings, field: str = "adj_close", groups: dict | None = None) -> pd.DataFrame:
+    """Wide price matrix; with `groups` ({label: ticker}), benchmark series renamed to their asset-class labels."""
+    if groups:
+        wide = price_matrix(list(groups.values()), s, field)
+        return wide.rename(columns={ticker: name for name, ticker in groups.items()})[
+            [name for name, ticker in groups.items() if ticker in wide]]
+    tickers = list(dict.fromkeys(tickers))
+    convert = s.currency != "native" and field != "volume"
+    long = prices(tuple(tickers + ["AUDUSD=X"] * convert), s.start, s.end)
+    wide = rets.price_matrix(long, field)
+    if convert and "AUDUSD=X" in wide:
+        currencies = instruments().set_index("ticker")["currency"].to_dict()
+        wide = rets.to_currency(wide, currencies, wide["AUDUSD=X"], s.currency)
+    return wide[[t for t in tickers if t in wide]]
+
+
+def return_matrix(tickers, s: Settings, align: str = "inner", groups: dict | None = None) -> pd.DataFrame:
+    r = rets.compute(price_matrix(tickers, s, groups=groups), s.freq, s.kind, align)
+    if r.attrs.get("dropped"):
+        st.caption(f"Skipped (not enough data in range): {', '.join(r.attrs['dropped'])}")
+    return r
+
+
+def series_matrix(tickers, s: Settings, series: str, groups: dict | None = None) -> pd.DataFrame:
+    """'Returns', 'Price' or 'Volume' matrix at the sidebar interval."""
+    if series == "Returns":
+        return return_matrix(tickers, s, groups=groups)
+    if series == "Volume":
+        return resample.total(price_matrix(tickers, s, "volume", groups), s.freq)
+    return resample.last(price_matrix(tickers, s, groups=groups), s.freq)
+
+
+def subject_picker() -> tuple[list[str], dict | None]:
+    """Pick what to analyse: individual tickers, or asset classes represented by their standard benchmarks."""
+    inst, s = instruments(), settings()
+    mode = st.segmented_control("Analyse", ["Tickers", "Asset classes"], default="Tickers", required=True)
+    if mode == "Tickers":
+        return st.multiselect("Tickers", inst.ticker, default=list(s.basket), format_func=label), None
+
+    available = [c for c in universe.ASSET_CLASSES if c in set(benchmarks.TABLE.asset_class)]
+    c1, c2 = st.columns(2)
+    classes = c1.multiselect("Asset classes", available, default=BENCHMARK_DEFAULT)
+    regions = c2.multiselect("Regions", benchmarks.REGIONS, placeholder="Headline benchmark for each class")
+    chosen = benchmarks.select(classes, regions)
+    loaded = chosen.ticker.isin(set(inst.ticker))
+    if not loaded.all():
+        st.caption(f"Not downloaded yet: {', '.join(chosen.ticker[~loaded])}. Refresh the built-in lists in Data Manager.")
+    chosen = chosen[loaded]
+    with st.expander(f"Benchmarks used ({len(chosen)})"):
+        st.dataframe(chosen[["label", "benchmark", "provider", "ticker", "series", "note"]], hide_index=True,
+                     column_config={"label": "Analysed as", "series": st.column_config.TextColumn(
+                         "Series", help="index: the benchmark itself · tracker: an ETF/ETN tracking it · proxy: closest stand-in")})
+    return chosen.label.tolist(), dict(zip(chosen.label, chosen.ticker))
+
+
+SECTIONS = (("findings", ":material/query_stats: What the numbers show"),
+            ("implications", ":material/insights: Why it matters"),
+            ("caveats", ":material/warning: Keep in mind"))
+
+
+def bullets(items: list[str]) -> str:
+    return "\n".join(f"- {item}" for item in items)
+
+
+def explain(reading) -> None:
+    """'What this means' card: headline, findings, implications, caveats and definitions."""
+    if reading is None:
+        return
+    with st.container(border=True):
+        st.markdown("**:material/lightbulb: What this means**")
+        st.markdown(f"##### {reading.headline}")
+        for attr, title in SECTIONS:
+            if items := getattr(reading, attr):
+                st.markdown(f"**{title}**")
+                st.markdown(bullets(items))
+        if definitions := reading.definitions():
+            with st.expander("Definitions"):
+                st.markdown(bullets([f"**{term}:** {text}" for term, text in definitions.items()]))
+        st.caption("Automatic interpretation from fixed statistical rules. Educational, not financial advice.")
+
+
+def dark() -> bool:
+    return st.context.theme.type == "dark"
+
+
+def series_color(slot: int) -> str:
+    """Categorical palette colour by fixed slot (1-8), stepped for the current theme."""
+    return SERIES["dark" if dark() else "light"][slot - 1]
+
+
+def diverging() -> list:
+    """Red (negative) → neutral gray → blue (positive), for correlations and returns."""
+    return [[0, "#e34948"], [0.5, "#383835" if dark() else "#f0efec"], [1, "#3987e5" if dark() else "#2a78d6"]]
+
+
+def sequential() -> list[str]:
+    """Single-hue blue ramp; the low end recedes toward the page surface."""
+    return BLUES[::-1] if dark() else BLUES
+
+
+def header(title: str, caption: str) -> None:
+    st.title(title)
+    st.caption(caption)
+
+
+def chart(fig, container=None, height: int | None = None) -> None:
+    """Apply shared layout (legend, hover, margins, thin lines) and render a Plotly figure."""
+    pointwise = any(t.type in ("heatmap", "box") or (t.type == "scatter" and "markers" in (t.mode or ""))
+                    for t in fig.data)
+    fig.update_layout(
+        height=height or fig.layout.height or 380, margin=dict(l=8, r=16, t=56 if fig.layout.title.text else 12, b=8),
+        title=dict(font_size=14, x=0, xanchor="left"), bargap=0.25,
+        showlegend=len(fig.data) > 1 if fig.layout.showlegend is None else fig.layout.showlegend,
+        legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="right", x=1, title_text=""),
+        hovermode="closest" if pointwise else "x unified",
+    )
+    fig.update_xaxes(automargin=True)
+    fig.update_yaxes(automargin=True)
+    fig.update_traces(line_width=2, selector=dict(type="scatter", mode="lines"))
+    fig.update_traces(marker_size=7, selector=dict(type="scatter", mode="markers"))
+    (container or st).plotly_chart(fig)
+
+
+def market_tiles(tickers: list[str] = MARKETS) -> None:
+    """Row of bordered tiles: last level, daily change and a 3-month sparkline."""
+    start = date.today() - timedelta(days=120)
+    long = prices(tuple(tickers), start)
+    shown = [t for t in tickers if t in set(long.ticker)]
+    with st.container(key="tiles"):
+        cols = [c for _ in range(0, len(shown), 4) for c in st.columns(4)]
+        for col, ticker in zip(cols, shown):
+            close = long.loc[long.ticker == ticker, "close"].tail(63)
+            last = close.iloc[-1]
+            col.metric(names().get(ticker, ticker), f"{last:,.0f}" if last >= 1000 else f"{last:,.4g}",
+                       f"{last / close.iloc[-2] - 1:+.2%}", chart_data=close.round(4).tolist(), chart_type="area",
+                       border=True)
+
+
+def _ordered(key: str, values) -> list:
+    order = {"asset_class": universe.ASSET_CLASSES, "universe": universe.PICKER_ORDER}.get(key)
+    return sorted(values, key=lambda v: (order.index(v) if v in order else len(order), v)) if order else sorted(values)
+
+
+def instrument_filters(prefix: str, keys=tuple(FILTERS), defaults: dict | None = None) -> tuple[dict, str]:
+    """Cascading multiselects: each only offers values still present after the earlier selections."""
+    inst, ss, selected = instruments(), st.session_state, {}
+    for key, value in (defaults or {}).items():
+        ss.setdefault(f"{prefix}_{key}", value)
+    cols = st.columns(len(keys) + 1)
+    for col, key in zip(cols, keys):
+        state = f"{prefix}_{key}"
+        options = _ordered(key, filters.universe(inst, **selected)[key].dropna().unique())
+        ss[state] = [v for v in ss.get(state, []) if v in options]
+        selected[key] = col.multiselect(FILTERS[key], options, key=state, placeholder="All",
+                                        format_func=lambda v: universe.LABELS.get(v, v))
+    search = cols[-1].text_input("Search", key=f"{prefix}_search", placeholder="ticker or name")
+    return selected, search
+
+
+def percent(df: pd.DataFrame, cols) -> dict:
+    return {c: PCT for c in cols if c in df}
+
+
+def download(df: pd.DataFrame, name: str) -> None:
+    st.download_button("Download CSV", df.to_csv().encode(), f"{name}.csv", "text/csv", icon=":material/download:")
+
+
+def conclusions(df: pd.DataFrame) -> None:
+    """Show a test-results table with numeric formatting."""
+    st.dataframe(df, hide_index=True, column_config={"statistic": NUM, "p_value": st.column_config.NumberColumn(
+        format="%.4g"), "conclusion": st.column_config.TextColumn(width="large")})

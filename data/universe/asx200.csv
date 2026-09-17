@@ -1,0 +1,201 @@
+ticker,name,type,exchange,currency,sector,universe
+360.AX,Life360,equity,ASX,AUD,Information Technology,asx200
+4DX.AX,4DMedical,equity,ASX,AUD,Healthcare,asx200
+A2M.AX,a2 Milk Company,equity,ASX,AUD,Consumer Staples,asx200
+AAI.AX,Alcoa,equity,ASX,AUD,Materials,asx200
+AFI.AX,Australian Foundation Investment Company,equity,ASX,AUD,Financials,asx200
+AGL.AX,AGL Energy,equity,ASX,AUD,Utilities,asx200
+AIA.AX,Auckland International Airport Limited,equity,ASX,AUD,Industrials,asx200
+ALD.AX,Ampol,equity,ASX,AUD,Energy,asx200
+ALK.AX,Alkane Resources,equity,ASX,AUD,Materials,asx200
+ALL.AX,Aristocrat Leisure,equity,ASX,AUD,Consumer Discretionary,asx200
+ALQ.AX,ALS,equity,ASX,AUD,Industrials,asx200
+ALX.AX,Atlas Arteria,equity,ASX,AUD,Industrials,asx200
+AMC.AX,Amcor,equity,ASX,AUD,Materials,asx200
+AMP.AX,AMP,equity,ASX,AUD,Financials,asx200
+ANN.AX,Ansell,equity,ASX,AUD,Healthcare,asx200
+ANZ.AX,Australia & New Zealand Banking Group,equity,ASX,AUD,Financials,asx200
+APA.AX,APA Group,equity,ASX,AUD,Utilities,asx200
+APE.AX,Eagers Automotive,equity,ASX,AUD,Consumer Discretionary,asx200
+ARB.AX,ARB Corporation,equity,ASX,AUD,Consumer Discretionary,asx200
+ARG.AX,Argo Investments,equity,ASX,AUD,Financials,asx200
+ASB.AX,Austal,equity,ASX,AUD,Industrials,asx200
+ASK.AX,Abacus Storage King,equity,ASX,AUD,Real Estate,asx200
+ASX.AX,ASX,equity,ASX,AUD,Financials,asx200
+AUB.AX,AUB Group,equity,ASX,AUD,Financials,asx200
+AZJ.AX,Aurizon,equity,ASX,AUD,Industrials,asx200
+BEN.AX,Bendigo & Adelaide Bank,equity,ASX,AUD,Financials,asx200
+BFL.AX,BSP Financial Group,equity,ASX,AUD,Financials,asx200
+BGA.AX,Bega Cheese,equity,ASX,AUD,Consumer Staples,asx200
+BGL.AX,Bellevue Gold,equity,ASX,AUD,Materials,asx200
+BHP.AX,BHP,equity,ASX,AUD,Materials,asx200
+BOQ.AX,Bank of Queensland,equity,ASX,AUD,Financials,asx200
+BPT.AX,Beach Energy,equity,ASX,AUD,Energy,asx200
+BRG.AX,Breville Group,equity,ASX,AUD,Consumer Discretionary,asx200
+BSL.AX,BlueScope,equity,ASX,AUD,Materials,asx200
+BWP.AX,BWP Trust,equity,ASX,AUD,Real Estate,asx200
+BXB.AX,Brambles,equity,ASX,AUD,Industrials,asx200
+CAR.AX,CAR Group,equity,ASX,AUD,Communication Services,asx200
+CBA.AX,Commonwealth Bank,equity,ASX,AUD,Financials,asx200
+CDA.AX,Codan,equity,ASX,AUD,Information Technology,asx200
+CEN.AX,Contact Energy,equity,ASX,AUD,Utilities,asx200
+CGF.AX,Challenger,equity,ASX,AUD,Financials,asx200
+CHC.AX,Charter Hall,equity,ASX,AUD,Real Estate,asx200
+CIA.AX,Champion Iron,equity,ASX,AUD,Materials,asx200
+CIP.AX,Centuria Industrial REIT,equity,ASX,AUD,Real Estate,asx200
+CLW.AX,Charter Hall Long WALE REIT,equity,ASX,AUD,Real Estate,asx200
+CMM.AX,Capricorn Metals,equity,ASX,AUD,Materials,asx200
+CNU.AX,Chorus,equity,ASX,AUD,Communication Services,asx200
+COH.AX,Cochlear,equity,ASX,AUD,Healthcare,asx200
+COL.AX,Coles Group,equity,ASX,AUD,Consumer Staples,asx200
+CPU.AX,Computershare,equity,ASX,AUD,Information Technology,asx200
+CQR.AX,Charter Hall Retail REIT,equity,ASX,AUD,Real Estate,asx200
+CSC.AX,Capstone Copper,equity,ASX,AUD,Materials,asx200
+CSL.AX,CSL,equity,ASX,AUD,Healthcare,asx200
+CTD.AX,Corporate Travel Management,equity,ASX,AUD,Consumer Discretionary,asx200
+CWY.AX,Cleanaway,equity,ASX,AUD,Industrials,asx200
+CYL.AX,Catalyst Metals,equity,ASX,AUD,Materials,asx200
+DBI.AX,Dalrymple Bay Infrastructure,equity,ASX,AUD,Industrials,asx200
+DNL.AX,Dyno Nobel,equity,ASX,AUD,Materials,asx200
+DOW.AX,Downer Group,equity,ASX,AUD,Industrials,asx200
+DRO.AX,Droneshield,equity,ASX,AUD,Industrials,asx200
+DRR.AX,Deterra Royalties,equity,ASX,AUD,Materials,asx200
+DXS.AX,Dexus,equity,ASX,AUD,Real Estate,asx200
+DYL.AX,Deep Yellow,equity,ASX,AUD,Energy,asx200
+EBO.AX,EBOS Group,equity,ASX,AUD,Healthcare,asx200
+EDV.AX,Endeavour Group,equity,ASX,AUD,Consumer Staples,asx200
+EMR.AX,Emerald Resources,equity,ASX,AUD,Materials,asx200
+EOS.AX,Electro Optic Systems Holdings,equity,ASX,AUD,Industrials,asx200
+EVN.AX,Evolution Mining,equity,ASX,AUD,Materials,asx200
+EVT.AX,EVT,equity,ASX,AUD,Communication Services,asx200
+FBU.AX,Fletcher Building,equity,ASX,AUD,Industrials,asx200
+FLT.AX,Flight Centre Travel Group,equity,ASX,AUD,Consumer Discretionary,asx200
+FMG.AX,Fortescue,equity,ASX,AUD,Materials,asx200
+FPH.AX,Fisher & Paykel Healthcare,equity,ASX,AUD,Healthcare,asx200
+FRW.AX,Freightways Group,equity,ASX,AUD,Industrials,asx200
+GDG.AX,Generation Development Group,equity,ASX,AUD,Financials,asx200
+GGP.AX,Greatland Resources,equity,ASX,AUD,Materials,asx200
+GMD.AX,Genesis Minerals,equity,ASX,AUD,Materials,asx200
+GMG.AX,Goodman Group,equity,ASX,AUD,Real Estate,asx200
+GNE.AX,Genesis Energy,equity,ASX,AUD,Utilities,asx200
+GPT.AX,GPT Group,equity,ASX,AUD,Real Estate,asx200
+GQG.AX,GQG Partners,equity,ASX,AUD,Financials,asx200
+HDN.AX,HomeCo Daily Needs REIT,equity,ASX,AUD,Real Estate,asx200
+HUB.AX,HUB24,equity,ASX,AUD,Financials,asx200
+HVN.AX,Harvey Norman,equity,ASX,AUD,Consumer Discretionary,asx200
+IAG.AX,Insurance Australia Group,equity,ASX,AUD,Financials,asx200
+IFL.AX,Insignia Financial,equity,ASX,AUD,Financials,asx200
+IFT.AX,Infratil,equity,ASX,AUD,Financials,asx200
+IGO.AX,IGO,equity,ASX,AUD,Materials,asx200
+ILU.AX,Iluka Resources,equity,ASX,AUD,Materials,asx200
+IMD.AX,IMDEX,equity,ASX,AUD,Materials,asx200
+JBH.AX,JB Hi-Fi,equity,ASX,AUD,Consumer Discretionary,asx200
+JHX.AX,James Hardie,equity,ASX,AUD,Materials,asx200
+L1G.AX,L1 Group,equity,ASX,AUD,Financials,asx200
+LLC.AX,Lendlease,equity,ASX,AUD,Real Estate,asx200
+LNW.AX,Light & Wonder,equity,ASX,AUD,Consumer Discretionary,asx200
+LOV.AX,Lovisa,equity,ASX,AUD,Consumer Discretionary,asx200
+LSF.AX,L1 Long Short Fund,equity,ASX,AUD,Financials,asx200
+LTR.AX,Liontown Resources,equity,ASX,AUD,Materials,asx200
+LYC.AX,Lynas Rare Earths,equity,ASX,AUD,Materials,asx200
+MCY.AX,Mercury NZ,equity,ASX,AUD,Utilities,asx200
+MEZ.AX,Meridian Energy,equity,ASX,AUD,Utilities,asx200
+MFF.AX,MFF Capital Investments,equity,ASX,AUD,Financials,asx200
+MFG.AX,Magellan Financial Group,equity,ASX,AUD,Financials,asx200
+MGR.AX,Mirvac,equity,ASX,AUD,Real Estate,asx200
+MIN.AX,Mineral Resources,equity,ASX,AUD,Materials,asx200
+MND.AX,Monadelphous Group,equity,ASX,AUD,Industrials,asx200
+MPL.AX,Medibank,equity,ASX,AUD,Financials,asx200
+MQG.AX,Macquarie Group,equity,ASX,AUD,Financials,asx200
+MSB.AX,Mesoblast,equity,ASX,AUD,Healthcare,asx200
+MTS.AX,Metcash,equity,ASX,AUD,Consumer Staples,asx200
+MXT.AX,Metrics Master Income Trust,equity,ASX,AUD,Financials,asx200
+NAB.AX,National Australia Bank,equity,ASX,AUD,Financials,asx200
+NEM.AX,Newmont,equity,ASX,AUD,Materials,asx200
+NHC.AX,New Hope,equity,ASX,AUD,Energy,asx200
+NHF.AX,Nib,equity,ASX,AUD,Financials,asx200
+NIC.AX,Nickel Industries,equity,ASX,AUD,Materials,asx200
+NSR.AX,National Storage,equity,ASX,AUD,Real Estate,asx200
+NST.AX,Northern Star Resources,equity,ASX,AUD,Materials,asx200
+NWH.AX,NRW Holdings,equity,ASX,AUD,Industrials,asx200
+NWL.AX,Netwealth Group,equity,ASX,AUD,Financials,asx200
+NWS.AX,News Corp Class B,equity,ASX,AUD,Communication Services,asx200
+NXG.AX,Nexgen Energy,equity,ASX,AUD,Energy,asx200
+NXT.AX,NextDC,equity,ASX,AUD,Information Technology,asx200
+OBM.AX,Ora Banda Mining,equity,ASX,AUD,Materials,asx200
+ORA.AX,Orora,equity,ASX,AUD,Materials,asx200
+ORG.AX,Origin Energy,equity,ASX,AUD,Utilities,asx200
+ORI.AX,Orica,equity,ASX,AUD,Materials,asx200
+PDI.AX,Predictive Discovery,equity,ASX,AUD,Materials,asx200
+PDN.AX,Paladin Energy,equity,ASX,AUD,Energy,asx200
+PLS.AX,PLS Group,equity,ASX,AUD,Materials,asx200
+PME.AX,Pro Medicus,equity,ASX,AUD,Healthcare,asx200
+PMV.AX,Premier Investments,equity,ASX,AUD,Consumer Discretionary,asx200
+PNI.AX,Pinnacle Investment Management,equity,ASX,AUD,Financials,asx200
+PPT.AX,Perpetual,equity,ASX,AUD,Financials,asx200
+PRN.AX,Perenti,equity,ASX,AUD,Materials,asx200
+PRU.AX,Perseus Mining,equity,ASX,AUD,Materials,asx200
+PXA.AX,Pexa Group,equity,ASX,AUD,Real Estate,asx200
+QAN.AX,Qantas,equity,ASX,AUD,Industrials,asx200
+QBE.AX,QBE Insurance,equity,ASX,AUD,Financials,asx200
+QUB.AX,Qube Holdings,equity,ASX,AUD,Industrials,asx200
+RDX.AX,Redox,equity,ASX,AUD,Industrials,asx200
+REA.AX,REA Group,equity,ASX,AUD,Communication Services,asx200
+REG.AX,Regis Healthcare,equity,ASX,AUD,Healthcare,asx200
+REH.AX,Reece Group,equity,ASX,AUD,Industrials,asx200
+RGN.AX,Region Group,equity,ASX,AUD,Real Estate,asx200
+RHC.AX,Ramsay Health Care,equity,ASX,AUD,Healthcare,asx200
+RIO.AX,Rio Tinto,equity,ASX,AUD,Materials,asx200
+RMD.AX,ResMed,equity,ASX,AUD,Healthcare,asx200
+RMS.AX,Ramelius Resources,equity,ASX,AUD,Materials,asx200
+RRL.AX,Regis Resources,equity,ASX,AUD,Materials,asx200
+RSG.AX,Resolute Mining,equity,ASX,AUD,Materials,asx200
+RWC.AX,Reliance Worldwide Corporation,equity,ASX,AUD,Industrials,asx200
+RYM.AX,Ryman Healthcare,equity,ASX,AUD,Healthcare,asx200
+S32.AX,South32,equity,ASX,AUD,Materials,asx200
+SCG.AX,Scentre Group,equity,ASX,AUD,Real Estate,asx200
+SDF.AX,Steadfast Group,equity,ASX,AUD,Financials,asx200
+SEK.AX,Seek,equity,ASX,AUD,Communication Services,asx200
+SFR.AX,Sandfire Resources,equity,ASX,AUD,Materials,asx200
+SGH.AX,SGH,equity,ASX,AUD,Industrials,asx200
+SGM.AX,Sims Metal,equity,ASX,AUD,Materials,asx200
+SGP.AX,Stockland,equity,ASX,AUD,Real Estate,asx200
+SHL.AX,Sonic Healthcare,equity,ASX,AUD,Healthcare,asx200
+SIG.AX,Sigma Healthcare,equity,ASX,AUD,Healthcare,asx200
+SMR.AX,Stanmore Resources,equity,ASX,AUD,Materials,asx200
+SNZ.AX,Summerset Group Holdings,equity,ASX,AUD,Healthcare,asx200
+SOL.AX,Soul Patts,equity,ASX,AUD,Financials,asx200
+SPK.AX,Spark New Zealand,equity,ASX,AUD,Communication Services,asx200
+STO.AX,Santos,equity,ASX,AUD,Energy,asx200
+SUL.AX,Super Retail Group,equity,ASX,AUD,Consumer Discretionary,asx200
+SUN.AX,Suncorp,equity,ASX,AUD,Financials,asx200
+TAH.AX,Tabcorp,equity,ASX,AUD,Consumer Discretionary,asx200
+TCL.AX,Transurban,equity,ASX,AUD,Industrials,asx200
+TLC.AX,The Lottery Corporation,equity,ASX,AUD,Consumer Discretionary,asx200
+TLS.AX,Telstra,equity,ASX,AUD,Communication Services,asx200
+TLX.AX,Telix Pharmaceuticals,equity,ASX,AUD,Healthcare,asx200
+TNE.AX,TechnologyOne,equity,ASX,AUD,Information Technology,asx200
+TPG.AX,TPG Telecom,equity,ASX,AUD,Communication Services,asx200
+TUA.AX,Tuas,equity,ASX,AUD,Communication Services,asx200
+TWE.AX,Treasury Wine Estates,equity,ASX,AUD,Consumer Staples,asx200
+VAU.AX,Vault Minerals,equity,ASX,AUD,Materials,asx200
+VCX.AX,Vicinity Centres,equity,ASX,AUD,Real Estate,asx200
+VEA.AX,Viva Energy,equity,ASX,AUD,Energy,asx200
+VGN.AX,Virgin Australia Holdings,equity,ASX,AUD,Industrials,asx200
+VNT.AX,Ventia Services Group,equity,ASX,AUD,Industrials,asx200
+WAF.AX,West African Resources,equity,ASX,AUD,Materials,asx200
+WAM.AX,WAM Capital,equity,ASX,AUD,Financials,asx200
+WBC.AX,Westpac,equity,ASX,AUD,Financials,asx200
+WDS.AX,Woodside Energy Group,equity,ASX,AUD,Energy,asx200
+WES.AX,Wesfarmers,equity,ASX,AUD,Consumer Discretionary,asx200
+WGX.AX,Westgold Resources,equity,ASX,AUD,Materials,asx200
+WHC.AX,Whitehaven Coal,equity,ASX,AUD,Energy,asx200
+WLE.AX,WAM Leaders,equity,ASX,AUD,Financials,asx200
+WOR.AX,Worley,equity,ASX,AUD,Energy,asx200
+WOW.AX,Woolworths Group,equity,ASX,AUD,Consumer Staples,asx200
+WTC.AX,Wisetech Global,equity,ASX,AUD,Information Technology,asx200
+XRO.AX,Xero,equity,ASX,AUD,Information Technology,asx200
+XYX.AX,"Block, Inc.",equity,ASX,AUD,Financials,asx200
+YAL.AX,Yancoal Australia,equity,ASX,AUD,Materials,asx200
+ZIM.AX,Zimplats Holdings,equity,ASX,AUD,Materials,asx200
+ZIP.AX,Zip,equity,ASX,AUD,Financials,asx200
