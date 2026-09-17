@@ -13,7 +13,7 @@ python -m venv .venv
 .venv/Scripts/python scripts/refresh.py
 .venv/Scripts/python scripts/refresh.py --universe asx200
 ```
-With no arguments it loads every built-in list: `indices` (global, ASX and ASX sector indices), `etfs` (equity, bond, property and commodity ETFs), `commodities` (futures), `rates` (US Treasury yields), `fx`, `crypto`. Other lists: `asx200`, `sp500`, `custom`, `all`. Add tickers with `--tickers WDS.AX NVDA`. You can also refresh from the **Data Manager** page. The first run downloads full history; later runs fetch only recent days.
+With no arguments it loads every built-in list: `indices` (global, ASX and ASX sector indices), `etfs` (equity, bond, property and commodity ETFs), `commodities` (futures), `rates` (US Treasury yields), `fx`, `crypto`. Other lists: `asx200`, `asx_listed` (every company currently listed on the ASX, about 1,800, from the exchange directory), `sp500`, `custom`, `all`. Add tickers with `--tickers WDS.AX NVDA`. You can also refresh from the **Data Manager** page. The first run downloads full history; later runs fetch only recent days.
 
 ## Run
 ```bash

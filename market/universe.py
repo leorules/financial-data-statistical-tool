@@ -7,9 +7,11 @@ import yfinance as yf
 from market import store
 from market.config import UNIVERSE_DIR
 
-NAMES = ["indices", "etfs", "commodities", "rates", "fx", "crypto", "asx200", "sp500", "custom"]
+NAMES = ["indices", "etfs", "commodities", "rates", "fx", "crypto", "asx200", "asx_listed", "sp500", "custom"]
 LABELS = {"indices": "Indices", "etfs": "ETFs", "commodities": "Commodities", "rates": "Rates", "fx": "FX",
-          "crypto": "Crypto", "asx200": "ASX 200", "sp500": "S&P 500", "custom": "Custom"}
+          "crypto": "Crypto", "asx200": "ASX 200", "asx_listed": "ASX (all listed)", "sp500": "S&P 500",
+          "custom": "Custom"}
+HEADERS = {"User-Agent": "Mozilla/5.0 market-dashboard"}
 ASSET_CLASSES = ["Equities", "Fixed income", "Cash", "Commodities", "Real estate", "Currencies", "Crypto",
                  "Alternatives", "Rates", "Volatility", "Other"]
 COLUMNS = ["ticker", "name", "type", "exchange", "currency", "sector", "universe", "asset_class"]
@@ -195,7 +197,8 @@ CRYPTO = _table("crypto", "Crypto", [
 ])
 
 BUILT_IN = {"indices": INDICES, "etfs": ETFS, "commodities": COMMODITIES, "rates": RATES, "fx": FX, "crypto": CRYPTO}
-PICKER_ORDER = ["indices", "commodities", "rates", "fx", "crypto", "etfs", "custom", "asx200", "sp500"]
+PICKER_ORDER = ["indices", "commodities", "rates", "fx", "crypto", "etfs", "custom", "asx200", "sp500",
+                "asx_listed"]
 
 
 def kinds(types) -> list[str]:
@@ -213,24 +216,70 @@ def sort(inst: pd.DataFrame) -> pd.DataFrame:
 
 
 WIKI = {
-    "asx200": ("https://en.wikipedia.org/wiki/S%26P/ASX_200", "Code", "Australia", "AUD",
+    "asx200": ("https://en.wikipedia.org/wiki/S%26P/ASX_200", "Code",
                lambda t: pd.DataFrame({"ticker": t["Code"] + ".AX", "name": t["Company"], "sector": t["Sector"]})),
-    "sp500": ("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies", "Symbol", "United States", "USD",
+    "sp500": ("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies", "Symbol",
               lambda t: pd.DataFrame({"ticker": t["Symbol"].str.replace(".", "-"), "name": t["Security"],
                                       "sector": t["GICS Sector"]})),
+}
+MARKETS = {"asx200": ("Australia", "AUD"), "asx_listed": ("Australia", "AUD"), "sp500": ("United States", "USD")}
+ASX_DIRECTORY = ("https://asx.api.markitdigital.com/asx-research/1.0/companies/directory/file"
+                 "?access_token=83ff96335c2d45a094df02a206a39ff4")
+ASX_FALLBACK = "https://www.asx.com.au/asx/research/ASXListedCompanies.csv"
+# The ASX directory reports GICS industry groups; map them to the 11 GICS sectors the index lists use.
+GICS_SECTORS = {
+    "Energy": "Energy", "Materials": "Materials",
+    "Capital Goods": "Industrials", "Commercial & Professional Services": "Industrials",
+    "Transportation": "Industrials",
+    "Automobiles & Components": "Consumer Discretionary", "Consumer Durables & Apparel": "Consumer Discretionary",
+    "Consumer Services": "Consumer Discretionary", "Retailing": "Consumer Discretionary",
+    "Consumer Discretionary Distribution & Retail": "Consumer Discretionary",
+    "Food, Beverage & Tobacco": "Consumer Staples", "Household & Personal Products": "Consumer Staples",
+    "Food & Staples Retailing": "Consumer Staples", "Consumer Staples Distribution & Retail": "Consumer Staples",
+    "Health Care Equipment & Services": "Health Care",
+    "Pharmaceuticals, Biotechnology & Life Sciences": "Health Care",
+    "Banks": "Financials", "Financial Services": "Financials", "Diversified Financials": "Financials",
+    "Insurance": "Financials",
+    "Software & Services": "Information Technology", "Technology Hardware & Equipment": "Information Technology",
+    "Semiconductors & Semiconductor Equipment": "Information Technology",
+    "Telecommunication Services": "Communication Services", "Media & Entertainment": "Communication Services",
+    "Utilities": "Utilities",
+    "Equity Real Estate Investment Trusts (REITs)": "Real Estate",
+    "Real Estate Management & Development": "Real Estate", "Real Estate": "Real Estate",
+    # Spelling variants seen in the index lists
+    "Healthcare": "Health Care", "Health care": "Health Care", "Consumer discretionary": "Consumer Discretionary",
+    "Information technology": "Information Technology", "Communication services": "Communication Services",
 }
 
 
 def _members(name: str, df: pd.DataFrame) -> pd.DataFrame:
-    _, _, region, currency, _ = WIKI[name]
-    return df.assign(type="equity", exchange=region, currency=currency, universe=name, asset_class="Equities")[COLUMNS]
+    """Index or exchange members as instrument rows, with sectors normalised to the 11 GICS sectors."""
+    region, currency = MARKETS[name]
+    sector = df.sector.map(lambda s: GICS_SECTORS.get(s, s if s in set(GICS_SECTORS.values()) else None))
+    return df.assign(sector=sector, type="equity", exchange=region, currency=currency, universe=name,
+                     asset_class="Equities")[COLUMNS]
+
+
+def asx_listed() -> pd.DataFrame:
+    """Every company currently listed on the ASX, from the exchange's own directory."""
+    try:
+        raw = pd.read_csv(io.StringIO(requests.get(ASX_DIRECTORY, headers=HEADERS, timeout=60).text))
+        code, company, industry = "ASX code", "Company name", "GICs industry group"
+    except Exception:
+        raw = pd.read_csv(io.StringIO(requests.get(ASX_FALLBACK, headers=HEADERS, timeout=60).text), skiprows=1)
+        code, company, industry = "ASX code", "Company name", "GICS industry group"
+    return pd.DataFrame({"ticker": raw[code].str.strip() + ".AX", "name": raw[company].str.title(),
+                         "sector": raw[industry]}).dropna(subset=["ticker"])
 
 
 def scrape(name: str) -> pd.DataFrame:
-    url, key, *_, parse = WIKI[name]
-    html = requests.get(url, headers={"User-Agent": "Mozilla/5.0 market-dashboard"}, timeout=30).text
-    table = next(t for t in pd.read_html(io.StringIO(html)) if key in t.columns)
-    df = _members(name, parse(table))
+    if name == "asx_listed":
+        df = _members(name, asx_listed())
+    else:
+        url, key, parse = WIKI[name]
+        html = requests.get(url, headers=HEADERS, timeout=30).text
+        table = next(t for t in pd.read_html(io.StringIO(html)) if key in t.columns)
+        df = _members(name, parse(table))
     UNIVERSE_DIR.mkdir(parents=True, exist_ok=True)
     df.to_csv(UNIVERSE_DIR / f"{name}.csv", index=False)
     return df
@@ -252,7 +301,11 @@ def load(name: str, rescrape: bool = False) -> pd.DataFrame:
 
 
 def sync(name: str, rescrape: bool = False) -> pd.DataFrame:
+    """Refresh a list's metadata. Tickers already held in another list (index members, ETFs) keep their own entry."""
     df = load(name, rescrape)
+    if name == "asx_listed":
+        others = set(store.instruments().ticker) - set(store.instruments(["asx_listed"]).ticker)
+        df = df[~df.ticker.isin(others)]
     if name != "custom":
         store.upsert("instruments", df)
     return df

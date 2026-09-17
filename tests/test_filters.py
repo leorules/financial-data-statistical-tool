@@ -63,3 +63,14 @@ def test_built_in_lists_are_unique_and_classified():
     assert built_in.ticker.is_unique
     assert set(built_in.asset_class) <= set(universe.ASSET_CLASSES)
     assert built_in.set_index("ticker").loc[["^VIX", "GC=F", "TLT", "^TNX"], "asset_class"].tolist() ==         ["Volatility", "Commodities", "Fixed income", "Rates"]
+
+
+def test_asx_listed_parses_the_exchange_directory(monkeypatch):
+    csv = ('"ASX code","Company name","GICs industry group","Listing date","Market Cap"\n'
+           '"BHP","BHP GROUP LIMITED","Materials","1885-01-01",200000000\n'
+           '"14D","1414 DEGREES LIMITED","Capital Goods","2018-09-12",40720219\n')
+    monkeypatch.setattr(universe.requests, "get", lambda *a, **k: type("R", (), {"text": csv})())
+    listed = universe.asx_listed()
+    assert listed.ticker.tolist() == ["BHP.AX", "14D.AX"]
+    assert listed.name.tolist() == ["Bhp Group Limited", "1414 Degrees Limited"]
+    assert listed.sector.tolist() == ["Materials", "Capital Goods"]

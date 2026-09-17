@@ -28,7 +28,7 @@ def drawdown(s: pd.Series) -> pd.Series:
 
 
 def pct_ago(s: pd.Series, n: int) -> float:
-    return s.iloc[-1] / s.iloc[-1 - n] - 1 if len(s) > n else np.nan
+    return s.iloc[-1] / s.iloc[-1 - n] - 1 if len(s) > n and s.iloc[-1 - n] else np.nan
 
 
 def metrics(bars: pd.DataFrame, bench_returns: pd.DataFrame) -> dict:
@@ -39,7 +39,7 @@ def metrics(bars: pd.DataFrame, bench_returns: pd.DataFrame) -> dict:
     prev_year = adj[adj.index.year < adj.index[-1].year]
     out = {"date": bars.index[-1], "close": close.iloc[-1]}
     out |= {k: pct_ago(adj, n) for k, n in LOOKBACKS.items()}
-    out["ret_ytd"] = adj.iloc[-1] / prev_year.iloc[-1] - 1 if len(prev_year) else np.nan
+    out["ret_ytd"] = adj.iloc[-1] / prev_year.iloc[-1] - 1 if len(prev_year) and prev_year.iloc[-1] else np.nan
     out |= {f"sma_{n}": sma(close, n).iloc[-1] for n in (20, 50, 200)}
     out |= {
         "ema_20": ema(close, 20).iloc[-1],
