@@ -35,8 +35,9 @@ with st.container(border=True):
     c1, c2, c3, c4 = st.columns([2, 2, 4, 2], vertical_alignment="bottom")
     region = c1.selectbox("Region", ["All", *sorted(pool.exchange.dropna().unique())])
     pool = pool if region == "All" else pool[pool.exchange == region]
-    kind = c2.selectbox("Type", ["All", *pool.type.dropna().unique()])
-    pool = pool if kind == "All" else pool[pool.type == kind]
+    available = universe.kinds(pool.type)
+    kind = c2.selectbox("Kind", [*available, "All"], help="Indices, ETFs and individual stocks are listed separately")
+    pool = pool if kind == "All" else pool[pool.type.isin(universe.KINDS[kind])]
     tickers = pool.ticker.tolist()
     ticker = c3.selectbox("Instrument", tickers, index=tickers.index("^AXJO") if "^AXJO" in tickers else 0,
                           format_func=ui.label)

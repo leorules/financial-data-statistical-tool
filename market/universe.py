@@ -13,6 +13,11 @@ LABELS = {"indices": "Indices", "etfs": "ETFs", "commodities": "Commodities", "r
 ASSET_CLASSES = ["Equities", "Fixed income", "Cash", "Commodities", "Real estate", "Currencies", "Crypto",
                  "Alternatives", "Rates", "Volatility", "Other"]
 COLUMNS = ["ticker", "name", "type", "exchange", "currency", "sector", "universe", "asset_class"]
+# Instrument types grouped into the kinds people pick between, in the order they are offered.
+KINDS = {"Indices": ("index",), "Sector indices": ("sector",), "ETFs": ("etf", "sector etf", "etn"),
+         "Individual stocks": ("equity",),
+         "Futures": ("energy", "precious metal", "industrial metal", "agriculture", "livestock"),
+         "FX pairs": ("fx",), "Yields": ("yield",), "Crypto": ("crypto",)}
 REGIONS = {"US": "United States", "AU": "Australia", "GB": "United Kingdom", "CA": "Canada", "JP": "Japan"}
 QUOTE_TYPES = {"EQUITY": "Equities", "INDEX": "Equities", "FUTURE": "Commodities", "CURRENCY": "Currencies",
                "CRYPTOCURRENCY": "Crypto"}
@@ -191,6 +196,12 @@ CRYPTO = _table("crypto", "Crypto", [
 
 BUILT_IN = {"indices": INDICES, "etfs": ETFS, "commodities": COMMODITIES, "rates": RATES, "fx": FX, "crypto": CRYPTO}
 PICKER_ORDER = ["indices", "commodities", "rates", "fx", "crypto", "etfs", "custom", "asx200", "sp500"]
+
+
+def kinds(types) -> list[str]:
+    """Kinds present among these instrument types, in KINDS order."""
+    present = set(types.dropna())
+    return [kind for kind, members in KINDS.items() if present & set(members)]
 
 
 def sort(inst: pd.DataFrame) -> pd.DataFrame:
