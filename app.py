@@ -2,8 +2,7 @@ import streamlit as st
 
 from market import ui
 
-st.set_page_config(page_title="FDA", page_icon="📈", layout="wide")
-st.logo("assets/fda.svg", size="large")
+st.set_page_config(page_title="Financial Data Statistical Tool", page_icon="📈", layout="wide")
 st.html("""<style>
 .block-container {padding-top: 2.5rem; padding-bottom: 3rem; max-width: 1480px}
 h1 {letter-spacing: -0.02em}

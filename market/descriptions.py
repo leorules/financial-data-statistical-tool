@@ -239,7 +239,7 @@ def describe(row: pd.Series) -> dict:
                   for _, r in bench.iterrows()]
     notes = bench_note + ([TYPE_NOTES[row.type]] if row.type in TYPE_NOTES else [])
     if text := CURATED.get(ticker) or sector_text(row["name"]):
-        return {"text": text, "notes": notes, "source": "FDA curated description"}
+        return {"text": text, "notes": notes, "source": "Curated description"}
     profile = yahoo_profile(ticker)
     if profile.get("summary"):
         return {"text": profile["summary"], "notes": notes, "source": "Yahoo Finance profile",

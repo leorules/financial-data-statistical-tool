@@ -1,6 +1,6 @@
-# FDA
+# Financial Data Statistical Tool
 
-Local Streamlit dashboard (FDA) for ASX 200 / US market data: ingest from Yahoo Finance into DuckDB, screen with filters, run statistical analysis, and write your own Python in the Code Lab.
+Local Streamlit dashboard for ASX, US and global market data: ingest from Yahoo Finance into DuckDB, screen with filters, run statistical analysis, stress-test a portfolio, and write your own Python in the Code Lab.
 
 ## Setup
 ```bash
