@@ -58,6 +58,12 @@ def prices(tickers: tuple[str, ...], start=None, end=None) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
+def db(name: str):
+    """Cached read from a no-argument `store` function; every refresh clears the cache anyway."""
+    return getattr(store, name)()
+
+
+@st.cache_data(ttl=300)
 def freshness(ticker: str) -> pd.DataFrame:
     return store.query("SELECT last_date, last_run FROM ingest_log WHERE ticker = ?", [ticker])
 

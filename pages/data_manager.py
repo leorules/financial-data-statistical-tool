@@ -1,3 +1,5 @@
+import time
+
 import streamlit as st
 
 from market import ingest, store, universe, ui
@@ -7,7 +9,14 @@ ui.header("Data Manager", "Download and refresh prices, manage custom tickers, a
 
 def refresh(tickers: list[str]) -> None:
     bar = st.progress(0.0, text=f"Refreshing {len(tickers)} tickers…")
-    log = ingest.refresh(tickers, on_progress=lambda p, msg: bar.progress(p, text=msg))
+    started = time.perf_counter()
+
+    def report(done: float, msg: str) -> None:
+        elapsed = time.perf_counter() - started
+        left = elapsed / done - elapsed if done else 0
+        bar.progress(done, text=f"{msg} · {elapsed / 60:.1f} min elapsed, about {left / 60:.1f} min left")
+
+    log = ingest.refresh(tickers, on_progress=report)
     ui.clear_cache()
     failed = log[log.status != "ok"]
     st.success(f"{len(log) - len(failed)}/{len(log)} tickers refreshed.", icon=":material/check_circle:")
@@ -15,7 +24,7 @@ def refresh(tickers: list[str]) -> None:
         st.warning("Failed: " + ", ".join(failed.ticker), icon=":material/warning:")
 
 
-info = store.stats()
+info = ui.db("stats")
 k = st.columns(4)
 k[0].metric("Tickers with data", f"{info['tickers']:,}", border=True)
 k[1].metric("Price rows", f"{info['rows']:,}", border=True)
@@ -40,7 +49,7 @@ with left.container(border=True, height="stretch"):
                         help="Yahoo symbols: ASX stocks end in .AX, indices start with ^")
     if st.button("Add & download", icon=":material/add:", disabled=not new):
         refresh(universe.add_custom(new.replace(",", " ").split()).ticker.tolist())
-    remove = st.multiselect("Remove custom tickers", store.instruments(["custom"]).ticker)
+    remove = st.multiselect("Remove custom tickers", ui.db("custom"))
     if st.button("Remove", icon=":material/delete:", disabled=not remove):
         store.delete(remove)
         ui.clear_cache()
@@ -48,15 +57,40 @@ with left.container(border=True, height="stretch"):
 
 with right.container(border=True, height="stretch"):
     st.markdown("**Index constituents**")
-    st.caption("ASX 200 and S&P 500 members are scraped from Wikipedia and cached as CSV.")
-    target = st.selectbox("Universe", ["asx200", "sp500"], format_func=universe.LABELS.get)
+    st.caption("ASX 200 and S&P 500 members come from Wikipedia; the full ASX list comes from the exchange "
+               "directory. All are cached as CSV.")
+    target = st.selectbox("Universe", ["asx200", "sp500", "asx_listed"], format_func=universe.LABELS.get)
     if st.button("Re-scrape constituents", icon=":material/download:"):
         members = universe.sync(target, rescrape=True)
         ui.clear_cache()
         st.success(f"{len(members)} members saved. Refresh {universe.LABELS[target]} to download their prices.")
 
+cover = ui.db("coverage")
+issues = ui.db("quality")
+left, right = st.columns([3, 4])
+with left.container(border=True, height="stretch"):
+    st.markdown("**Coverage by list**", help="Instruments held versus those with prices downloaded.")
+    st.dataframe(cover, hide_index=True, column_config={
+        "universe": st.column_config.TextColumn("List"), "instruments": "Held", "with_data": "With prices",
+        "last_date": st.column_config.DateColumn("Latest bar", format="DD MMM YYYY")})
+    behind = cover[cover.with_data < cover.instruments]
+    if len(behind):
+        st.caption("Not fully downloaded: "
+                   + ", ".join(f"**{universe.LABELS.get(r.universe, r.universe)}** "
+                               f"{r.instruments - r.with_data} missing" for _, r in behind.iterrows())
+                   + ". Refresh the list above to fetch them.")
+
+with right.container(border=True, height="stretch"):
+    st.markdown("**Data quality**", help="Problems that would quietly distort analysis if left unnoticed.")
+    st.dataframe(issues[issues.tickers > 0], hide_index=True, column_config={
+        "issue": st.column_config.TextColumn("Issue", width="medium"),
+        "tickers": st.column_config.NumberColumn("Tickers"),
+        "examples": st.column_config.TextColumn("Examples", width="large")})
+    st.caption("Zero prices come from Yahoo for suspended microcaps; they are treated as missing data, so those "
+               "instruments are measured only over the days they actually traded.")
+
 with st.container(border=True):
-    log = store.ingest_log()
+    log = ui.db("ingest_log")
     failed = log[log.status != "ok"]
     c1, c2 = st.columns([4, 1], vertical_alignment="center")
     c1.markdown("**Ingest log**")

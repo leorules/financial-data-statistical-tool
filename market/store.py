@@ -93,6 +93,34 @@ def delete(tickers: list[str]) -> None:
             con.execute(f"DELETE FROM {table} WHERE list_contains(?, ticker)", [list(tickers)])
 
 
+def custom() -> list[str]:
+    return instruments(["custom"]).ticker.tolist()
+
+
+def coverage() -> pd.DataFrame:
+    """Per universe: how many instruments are held, how many have prices, and how current they are."""
+    return query(
+        """SELECT i.universe, count(*) AS instruments, count(p.ticker) AS with_data, max(p.last_date) AS last_date
+           FROM instruments i
+           LEFT JOIN (SELECT ticker, max(date) AS last_date FROM prices GROUP BY ticker) p USING (ticker)
+           GROUP BY 1 ORDER BY 1"""
+    )
+
+
+def quality() -> pd.DataFrame:
+    """Data problems worth knowing about, each with the tickers involved."""
+    checks = {
+        "No price data": "SELECT ticker FROM instruments WHERE ticker NOT IN (SELECT DISTINCT ticker FROM prices)",
+        "Stale by over 7 days": """SELECT ticker FROM prices GROUP BY ticker
+                                   HAVING max(date) < (SELECT max(date) FROM prices) - INTERVAL 7 DAY""",
+        "Zero or negative prices": "SELECT DISTINCT ticker FROM prices WHERE adj_close <= 0",
+        "Failed on last refresh": "SELECT ticker FROM ingest_log WHERE status <> 'ok'",
+    }
+    rows = [{"issue": name, "tickers": len(found), "examples": ", ".join(sorted(found.ticker)[:12])}
+            for name, sql in checks.items() for found in [query(sql)]]
+    return pd.DataFrame(rows)
+
+
 def stats() -> dict:
     counts = query(
         "SELECT (SELECT count(*) FROM instruments) AS instruments, (SELECT count(*) FROM prices) AS rows, "
