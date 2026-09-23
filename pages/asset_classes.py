@@ -26,7 +26,7 @@ lists = None if members else [*universe.BUILT_IN, "custom"]
 pool = filters.universe(inst, search, universe=lists, **selected)
 ui.require(pool, "Nothing matches these filters. Refresh the lists in **Data Manager** if they are empty.")
 
-snap = ui.snapshot(tuple(pool.ticker), s.end).merge(
+snap = ui.snapshot(tuple(pool.ticker), s.end, s.on("total_return")).merge(
     pool[["ticker", "name", "asset_class", "exchange", "type"]], on="ticker")
 recent = ui.prices(tuple(pool.ticker), s.end - timedelta(days=183), s.end)
 snap["trend"] = snap.ticker.map(recent.groupby("ticker")["close"].apply(list))
@@ -34,7 +34,7 @@ metric = HORIZONS[horizon]
 
 bench = benchmarks.select(selected["asset_class"] or benchmarks.TABLE.asset_class.unique().tolist(), benchmarks.REGIONS)
 bench = bench[bench.ticker.isin(set(inst.ticker))]
-bench = bench.merge(ui.snapshot(tuple(bench.ticker), s.end), on="ticker")
+bench = bench.merge(ui.snapshot(tuple(bench.ticker), s.end, s.on("total_return")), on="ticker")
 if len(bench):
     with st.container(border=True):
         st.markdown("**Asset-class benchmarks**", help="The standard index for each asset class and region, or the ETF "

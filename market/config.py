@@ -15,8 +15,11 @@ MIN_OBS = 30
 RISK_FREE = 0.04
 PERIODS = {"D": 252, "W": 52, "M": 12}
 ASX_INDICES = {"^AORD", "^ATLI", "^AFLI", "^ATOI"}
+# Accumulation series standing in for each price index, for beta and alpha measured on total return.
+TOTAL_RETURN = {"^AXJO": "STW.AX", "^GSPC": "^SP500TR"}
 
 
-def benchmark_for(ticker: str) -> str:
+def benchmark_for(ticker: str, total_return: bool = False) -> str:
     asx = ticker.endswith(".AX") or ticker.startswith("^AX") or ticker in ASX_INDICES
-    return "^AXJO" if asx else "^GSPC"
+    index = "^AXJO" if asx else "^GSPC"
+    return TOTAL_RETURN[index] if total_return else index

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from market.config import RISK_FREE
-from market.stats.core import periods_per_year
+from market.stats.core import excess, periods_per_year
 
 
 def zscore(s: pd.Series, window: int) -> pd.Series:
@@ -21,10 +21,10 @@ def ewma_vol(r: pd.Series, lam: float = 0.94, periods: int | None = None) -> pd.
     return np.sqrt(r.pow(2).ewm(alpha=1 - lam).mean() * periods)
 
 
-def sharpe(r: pd.Series, window: int, periods: int | None = None, rf: float = RISK_FREE) -> pd.Series:
+def sharpe(r: pd.Series, window: int, periods: int | None = None, rf: float | pd.Series = RISK_FREE) -> pd.Series:
     periods = periods or periods_per_year(r.index)
-    roll = r.rolling(window)
-    return (roll.mean() - rf / periods) / roll.std() * np.sqrt(periods)
+    roll = excess(r, rf, periods).rolling(window)
+    return roll.mean() / r.rolling(window).std() * np.sqrt(periods)
 
 
 def moments(s: pd.Series, window: int, periods: int | None = None) -> pd.DataFrame:

@@ -19,6 +19,7 @@ NO_AXIS = {"value": "", "date": "", "index": ""}
 
 ui.header("Statistics", "Descriptive statistics, distributions, significance tests, risk, regression and time-series "
                         "analysis for tickers or whole asset classes.")
+ui.adjustments_caption(s, "total_return", "live_cash", "hac")
 with st.container(border=True):
     tickers, groups = ui.subject_picker()
     c1, c2 = st.columns([1, 2], vertical_alignment="bottom")
@@ -44,7 +45,8 @@ loaded = list(inst.ticker)
 c1, c2, c3 = st.columns(3)
 focus = c1.selectbox("Focus", cols, format_func=ui.label)
 other = c2.selectbox("Compare with", [c for c in cols if c != focus] or cols, format_func=ui.label)
-bench_options = list(dict.fromkeys([benchmark_for(focus), *loaded])) if benchmark_for(focus) in loaded else loaded
+default_bench = benchmark_for(focus, s.on("total_return"))
+bench_options = list(dict.fromkeys([default_bench, *loaded])) if default_bench in loaded else loaded
 bench = c3.selectbox("Benchmark", bench_options, format_func=ui.label)
 bench_r = ui.return_matrix([bench], s, align="ffill").get(bench)
 x = data[focus].dropna()
@@ -90,7 +92,8 @@ elif section == "Rolling":
     rf = returns[focus]
     rolling = pd.DataFrame({"rolling vol": stats.rolling.moments(rf, window)["vol_ann"],
                             "EWMA vol (λ=0.94)": stats.rolling.ewma_vol(rf),
-                            "rolling Sharpe": stats.rolling.sharpe(rf, window)})
+                            "rolling Sharpe": stats.rolling.sharpe(rf, window,
+                                                                  rf=ui.risk_free(s, rf.index))})
     left, right = st.columns(2)
     with left.container(border=True):
         line(rolling[["rolling vol", "EWMA vol (λ=0.94)"]], "Annualised volatility")
@@ -162,7 +165,7 @@ elif section == "Hypothesis":
         reading = interpret.hypothesis(mean_test.iloc[0], comparison, ci, stat, focus, other, s.freq, x, data[other])
 
 elif section == "Risk":
-    table = stats.risk.summary(returns, bench_r)
+    table = stats.risk.summary(returns, bench_r, rf=ui.risk_free(s, returns.index))
     pct_cols = ["ann_return", "ann_vol", "downside_dev", "max_drawdown", "ulcer_index", "tracking_error"]
     with card(f"Risk & performance vs {bench}" if bench_r is not None else "Risk & performance"):
         st.dataframe(table, column_config=ui.percent(table, pct_cols))
@@ -177,7 +180,9 @@ elif section == "Risk":
             fig = px.bar(capture, x="ticker", y="value", color="variable", barmode="group",
                          title=f"Up / down capture vs {bench}", labels={"value": "", "ticker": ""})
             ui.chart(fig.update_yaxes(tickformat=".0%"), height=360)
-    reading = interpret.risk(table, focus, bench if bench_r is not None else None, returns[focus])
+    cash_rate = ui.risk_free(s, returns.index)
+    reading = interpret.risk(table, focus, bench if bench_r is not None else None, returns[focus],
+                             float(cash_rate.mean()) if s.on("live_cash") else None)
 
 elif section == "Regression":
     with card():
@@ -186,7 +191,7 @@ elif section == "Regression":
         x_names = c2.multiselect("Independent (X)", list(dict.fromkeys([bench, *loaded])), default=[bench],
                                  format_func=ui.label)
     ui.require(x_names, "Pick at least one independent variable.")
-    res = stats.regression.fit(data[y_name], ui.series_matrix(x_names, s, series))
+    res = stats.regression.fit(data[y_name], ui.series_matrix(x_names, s, series), hac=s.on("hac"))
     coefficients, diagnostics = stats.regression.coefficients(res), stats.regression.diagnostics(res)
     left, right = st.columns(2)
     with left.container(border=True):

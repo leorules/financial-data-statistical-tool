@@ -26,7 +26,8 @@ with st.container(border=True):
     if s.currency == "native" and inst[inst.ticker.isin(tickers)].currency.nunique() > 1:
         st.caption("Mixed currencies in native terms. Choose AUD or USD in the sidebar to compare in one currency.")
 
-table = stats.risk.summary(r)
+table = stats.risk.summary(r, rf=ui.risk_free(s, r.index))
+ui.adjustments_caption(s, "live_cash")
 table.insert(0, "total_return", prices.ffill().iloc[-1] / prices.bfill().iloc[0] - 1)
 cols = ["total_return", "ann_return", "ann_vol", "sharpe", "sortino", "max_drawdown", "calmar", "dd_length"]
 with st.container(border=True):

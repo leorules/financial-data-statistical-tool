@@ -11,8 +11,9 @@ s = ui.settings()
 inst = ui.instruments()
 ui.require(inst)
 PERIOD = {"D": "day", "W": "week", "M": "month"}[s.freq]
+EVERY = {"D": "daily", "W": "weekly", "M": "monthly"}[s.freq]
 RISK_COLUMNS = {
-    "std": ("Std dev", f"Standard deviation of {PERIOD}ly returns"),
+    "std": ("Std dev", f"Standard deviation of {EVERY} returns"),
     "vol_ann": ("Volatility", "Annualised standard deviation"),
     "downside_dev": ("Downside dev", "Annualised volatility of losses only"),
     "var_95": ("VaR 95%", f"Historical: 1 in 20 {PERIOD}s was this bad or worse"),
@@ -62,7 +63,8 @@ ui.require(view, "No data in the selected range.")
 
 r = view["adj_close"].pct_change(fill_method=None).dropna()
 periods = stats.periods_per_year(view.index)
-risk = stats.risk.cross_section(r.to_frame(ticker), periods).iloc[0]
+rf = ui.risk_free(s, r.index)
+risk = stats.risk.cross_section(r.to_frame(ticker), periods, rf).iloc[0]
 k = st.columns(4)
 k[0].metric("Last close", f"{view.close.iloc[-1]:,.2f}", f"{view.close.pct_change().iloc[-1]:+.2%}", border=True)
 k[1].metric("Period return", f"{view.adj_close.iloc[-1] / view.adj_close.iloc[0] - 1:+.2%}", border=True)
@@ -72,7 +74,10 @@ k[3].metric("RSI (14)", f"{indicators.rsi(bars.close).iloc[-1]:.0f}", border=Tru
             help="Above 70 is often read as overbought, below 30 as oversold.")
 
 with st.container(border=True):
-    st.markdown(f"**:material/shield: Risk** · {len(r)} {PERIOD}ly returns, {view.index[0]:%d %b %Y} – {view.index[-1]:%d %b %Y}")
+    st.markdown(f"**:material/shield: Risk** · {len(r)} {EVERY} returns, {view.index[0]:%d %b %Y} – {view.index[-1]:%d %b %Y}")
+    ui.adjustments_caption(s, "live_cash")
+    if s.on("live_cash"):
+        st.caption(ui.cash_label(s, r.index))
     tiles = [(key, *RISK_COLUMNS[key]) for key in ("std", "vol_ann", "var_95", "cvar_95", "var_99", "max_drawdown",
                                                    "sharpe", "sortino")]
     for line in (tiles[:4], tiles[4:]):
@@ -122,7 +127,7 @@ with st.container(border=True):
     if st.toggle("Show table", value=len(pool) <= 100, key=f"risk_table_{asset_class}_{region}_{kind}"):
         wide = ui.price_matrix(pool.ticker.tolist(), replace(s, currency="native"))
         member_returns = resample.last(wide, s.freq).apply(lambda col: col.dropna().pct_change())
-        table = stats.risk.cross_section(member_returns, periods)
+        table = stats.risk.cross_section(member_returns, periods, ui.risk_free(s, member_returns.index))
         table = pool.set_index("ticker")[["name", "exchange", "type"]].join(table, how="inner")
         usable = (table.observations >= 20) & (table["std"] > 0)
         if (~usable).any():
@@ -131,7 +136,7 @@ with st.container(border=True):
         table = table[usable].sort_values("vol_ann", ascending=False)
         st.dataframe(table, height=min(640, 36 * (len(table) + 1)), column_config={
             "name": st.column_config.TextColumn("Name", width="medium"), "exchange": "Region", "type": "Type",
-            "observations": st.column_config.NumberColumn("Obs", help=f"Number of {PERIOD}ly returns"),
+            "observations": st.column_config.NumberColumn("Obs", help=f"Number of {EVERY} returns"),
             **{key: st.column_config.NumberColumn(name, help=help_text,
                                                   format="%.2f" if key in ("sharpe", "sortino") else "percent")
                for key, (name, help_text) in RISK_COLUMNS.items()},

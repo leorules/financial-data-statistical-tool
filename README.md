@@ -57,6 +57,24 @@ Stress periods (`market/stress.py`) run from the 1929 Wall Street Crash to the A
 
 The sidebar sets the date range, interval, return type, currency and basket for every page.
 
+## Adjustments
+By default the pages report the data exactly as it is — no substituted series and no injected
+assumptions. The sidebar's **Adjustments** panel turns on individual methodology corrections, and every
+page affected says which are active.
+
+| Adjustment | Off (default) | On |
+|---|---|---|
+| Total-return benchmarks | Beta and alpha vs `^AXJO` / `^GSPC`, which exclude dividends | vs `STW.AX` / `^SP500TR` accumulation series |
+| Live cash rate | Flat 4% in Sharpe, Sortino and Treynor | The rate that applied on each date (`^IRX`, `BILL.AX`) |
+| Robust standard errors | Plain OLS t-statistics | Newey–West, allowing for autocorrelated and heteroskedastic returns |
+| False-discovery correction | Raw correlation p-values | Benjamini–Hochberg across every pair tested |
+| Covariance shrinkage | Sample covariance | Ledoit–Wolf, which stays well-conditioned with many series |
+
+The state is mirrored to the URL, so a link reproduces the exact configuration. Two of the corrections
+move results materially: CBA's annualised alpha reads +6.65% against the price index and +2.31% against
+the accumulation series, and the S&P 500's 2010–15 Sharpe rises by about 0.25 once the actual cash rate
+(0.06%) replaces the 4% assumption.
+
 ## Layout
 - `market/`: data layer (`store`, `universe`, `ingest`, `providers/`), analytics (`indicators`, `returns`, `stats/`), `filters`, `sandbox`, and `ui` helpers
 - `pages/`: thin Streamlit pages

@@ -21,7 +21,7 @@ GLOSSARY = {
     "z-score": "How many standard deviations a value sits from its average.",
     "Rolling window": "A statistic recalculated on the most recent N periods, so you can see it change through time.",
     "EWMA volatility": "Volatility that weights recent returns more heavily (RiskMetrics λ = 0.94), so it reacts faster.",
-    "Sharpe ratio": f"Annual return above cash ({RISK_FREE:.0%} assumed) per unit of volatility. Above 1 is good.",
+    "Sharpe ratio": "Annual return above the cash rate per unit of volatility. Above 1 is good.",
     "Sortino ratio": "Like Sharpe, but only penalises downside volatility.",
     "Max drawdown": "The largest fall from a previous peak before a new high was made.",
     "Calmar ratio": "Annual return divided by the size of the maximum drawdown.",
@@ -352,7 +352,10 @@ def hypothesis(mean_test: pd.Series, comparison: pd.DataFrame, ci: pd.Series, st
     return reading
 
 
-def risk(table: pd.DataFrame, focus: str, bench: str | None, series: pd.Series) -> Reading:
+def risk(table: pd.DataFrame, focus: str, bench: str | None, series: pd.Series,
+         cash_rate: float | None = None) -> Reading:
+    """`cash_rate` is the average rate actually subtracted; None means the flat assumption."""
+    rate = RISK_FREE if cash_rate is None else cash_rate
     row = table.loc[focus]
     short = len(series.dropna()) < 60
     current_dd = float((1 + series.dropna()).cumprod().pipe(lambda w: w.iloc[-1] / w.max() - 1))
@@ -361,7 +364,7 @@ def risk(table: pd.DataFrame, focus: str, bench: str | None, series: pd.Series) 
         f"{focus} earned {pct(row.ann_return, sign=True)} a year at {pct(row.ann_vol)} volatility: a "
         f"{sharpe_level(row.sharpe)} risk-adjusted result (Sharpe {row.sharpe:.2f}).",
         findings=[
-            f"**Return vs risk:** after subtracting the {RISK_FREE:.0%} cash rate, each unit of volatility earned "
+            f"**Return vs risk:** after subtracting the {rate:.2%} cash rate, each unit of volatility earned "
             f"{row.sharpe:.2f} units of return. On a normal approximation that implies about a "
             f"{pct(norm.cdf(row.sharpe), 0)} chance of beating cash in any given year.",
             f"**Downside:** downside deviation is {pct(row.downside_dev)}; the Sortino ratio of {row.sortino:.2f} "
@@ -379,7 +382,9 @@ def risk(table: pd.DataFrame, focus: str, bench: str | None, series: pd.Series) 
         caveats=(["Annualised figures from fewer than 60 observations are arithmetic extrapolations of a short "
                   "window, not an expectation for a full year."] if short else [])
                 + ["Sharpe and Sortino assume a stable return distribution; fat tails and regime changes make them look "
-                   f"better than the risk really is. The cash rate is a fixed {RISK_FREE:.0%} assumption.", PAST],
+                   "better than the risk really is."
+                   + (f" The cash rate is a fixed {RISK_FREE:.0%} assumption." if cash_rate is None else
+                      " The cash rate is the one that actually applied on each date."), PAST],
         terms=["Sharpe ratio", "Sortino ratio", "Max drawdown", "Calmar ratio", "Ulcer index"],
     )
     if bench and pd.notna(row.get("beta")):

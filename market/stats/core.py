@@ -23,6 +23,14 @@ def result(test: str, statistic: float, p: float, h0: str, **extra) -> pd.Series
     return pd.Series({"test": test, "statistic": statistic, "p_value": p, **extra, "conclusion": verdict(p, h0)})
 
 
+def excess(r, rf, periods: int):
+    """Returns net of the risk-free rate; `rf` is a flat annual rate or a dated annual-rate series."""
+    if not isinstance(rf, pd.Series):
+        return r - rf / periods
+    per_period = rf.reindex(r.index).ffill().bfill() / periods
+    return r.sub(per_period, axis=0) if isinstance(r, pd.DataFrame) else r - per_period
+
+
 def pair(a: pd.Series, b: pd.Series) -> pd.DataFrame:
     """Align two series on common, non-missing dates."""
     return pd.concat([a, b], axis=1, keys=["a", "b"]).dropna()

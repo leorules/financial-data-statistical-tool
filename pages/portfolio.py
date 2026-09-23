@@ -109,7 +109,7 @@ with right.container(border=True):
             {"weight": "Weight", "vol": "Volatility", "contribution": "Risk contribution",
              "share_of_risk": "Share of risk"}.items()} | {"marginal": st.column_config.NumberColumn("Marginal", format="%.3f")})
 
-risk = stats.risk.metrics(portfolio_returns, bench_returns, periods)
+risk = stats.risk.metrics(portfolio_returns, bench_returns, periods, ui.risk_free(s, portfolio_returns.index))
 with st.container(border=True):
     st.markdown(f"**:material/shield: Portfolio risk** · {len(portfolio_returns)} periods vs {benchmark}")
     tiles = [("Volatility", f"{risk.ann_vol:.1%}"), ("VaR 95%", f"{portfolio_returns.quantile(0.05):.2%}"),

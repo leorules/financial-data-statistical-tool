@@ -5,8 +5,8 @@ from datetime import date, timedelta
 import pandas as pd
 import streamlit as st
 
-from market import benchmarks, descriptions, filters, indicators, resample, store, stress, universe
-from market.config import MIN_OBS
+from market import adjust, benchmarks, cash, descriptions, filters, indicators, resample, store, stress, universe
+from market.config import MIN_OBS, RISK_FREE
 from market import returns as rets
 
 RANGES = ["1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y", "10Y", "Max", "Custom"]
@@ -34,6 +34,10 @@ class Settings:
     kind: str
     currency: str
     basket: tuple[str, ...]
+    adjust: frozenset[str] = frozenset()
+
+    def on(self, key: str) -> bool:
+        return key in self.adjust
 
 
 @st.cache_data(ttl=300)
@@ -53,9 +57,9 @@ def prices(tickers: tuple[str, ...], start=None, end=None) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def snapshot(tickers: tuple[str, ...], as_of: date) -> pd.DataFrame:
-    long = store.prices([*tickers, "^AXJO", "^GSPC"], as_of - timedelta(days=420), as_of)
-    return indicators.snapshot(long)
+def snapshot(tickers: tuple[str, ...], as_of: date, total_return: bool = False) -> pd.DataFrame:
+    long = store.prices([*tickers, *indicators.BENCHMARKS], as_of - timedelta(days=420), as_of)
+    return indicators.snapshot(long, total_return=total_return)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -103,10 +107,43 @@ def sidebar() -> Settings:
                      help="Convert prices with AUDUSD=X. 'native' keeps each instrument's own currency.")
         st.multiselect("Basket", tickers, key="basket", format_func=label,
                        help="Default tickers for Compare, Correlation, Statistics and Code Lab.")
+        enabled = _adjustments(qp)
 
-    qp.update(range=ss.range, freq=ss.freq, basket=",".join(ss.basket))
-    ss.settings = Settings(start, end, ss.freq, ss.kind, ss.currency, tuple(ss.basket))
+    qp.update(range=ss.range, freq=ss.freq, basket=",".join(ss.basket), adjust=",".join(sorted(enabled)))
+    ss.settings = Settings(start, end, ss.freq, ss.kind, ss.currency, tuple(ss.basket), frozenset(enabled))
     return ss.settings
+
+
+def _adjustments(qp) -> set[str]:
+    """Opt-in methodology corrections. Everything is off by default so the pages report the data as it is."""
+    ss = st.session_state
+    for key in adjust.ADJUSTMENTS:
+        ss.setdefault(f"adj_{key}", key in qp.get("adjust", "").split(","))
+    on = {key for key in adjust.ADJUSTMENTS if ss[f"adj_{key}"]}
+    with st.expander(f"Adjustments ({len(on)} on)" if on else "Adjustments"):
+        st.caption("Off by default: results use the data exactly as it is.")
+        for key, (name, why) in adjust.ADJUSTMENTS.items():
+            st.checkbox(name, key=f"adj_{key}", help=why)
+    return {key for key in adjust.ADJUSTMENTS if ss[f"adj_{key}"]}
+
+
+def adjustments_caption(s: Settings, *keys: str) -> None:
+    """Name the adjustments affecting this page, so a screenshot says what produced it."""
+    if names_on := adjust.active(s.adjust, *keys):
+        st.caption(f":material/tune: Adjusted: {', '.join(names_on)}")
+
+
+def risk_free(s: Settings, index) -> float | pd.Series:
+    """Flat assumption unless the live cash rate is switched on."""
+    return cash.annual_rate(index, _cash_currency(s)) if s.on("live_cash") else RISK_FREE
+
+
+def cash_label(s: Settings, index) -> str:
+    return cash.label(index, _cash_currency(s))
+
+
+def _cash_currency(s: Settings) -> str:
+    return s.currency if s.currency in cash.SOURCES else "AUD"
 
 
 def settings() -> Settings:

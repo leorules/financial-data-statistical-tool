@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from market.config import RISK_FREE
-from market.stats.core import pair, periods_per_year
+from market.stats.core import excess, pair, periods_per_year
 
 
 def wealth(r: pd.Series) -> pd.Series:
@@ -55,10 +55,10 @@ def capture(r: pd.Series, bench: pd.Series) -> tuple[float, float]:
 
 
 def metrics(r: pd.Series, bench: pd.Series | None = None, periods: int | None = None,
-            rf: float = RISK_FREE) -> pd.Series:
+            rf: float | pd.Series = RISK_FREE) -> pd.Series:
     r = r.dropna()
     periods = periods or periods_per_year(r.index)
-    mean_excess = r.mean() * periods - rf
+    mean_excess = excess(r, rf, periods).mean() * periods
     vol, down = ann_vol(r, periods), downside_dev(r, periods)
     mdd = max_drawdown(r)
     out = {
@@ -79,22 +79,22 @@ def metrics(r: pd.Series, bench: pd.Series | None = None, periods: int | None = 
 
 
 def summary(df: pd.DataFrame, bench: pd.Series | None = None, periods: int | None = None,
-            rf: float = RISK_FREE) -> pd.DataFrame:
+            rf: float | pd.Series = RISK_FREE) -> pd.DataFrame:
     """Risk and performance metrics for every column; rows are tickers."""
     periods = periods or periods_per_year(df.index)
     return pd.DataFrame({c: metrics(df[c], bench, periods, rf) for c in df.columns}).T
 
 
-def cross_section(r: pd.DataFrame, periods: int | None = None, rf: float = RISK_FREE) -> pd.DataFrame:
+def cross_section(r: pd.DataFrame, periods: int | None = None, rf: float | pd.Series = RISK_FREE) -> pd.DataFrame:
     """Key risk metrics for many series at once; each column uses only its own dates."""
     periods = periods or periods_per_year(r.index)
     var95 = r.quantile(0.05)
     std = r.std()
     vol = std * np.sqrt(periods)
     downside = np.sqrt((r.clip(upper=0) ** 2).mean() * periods)
-    excess = r.mean() * periods - rf
+    mean_excess = excess(r, rf, periods).mean() * periods
     return pd.DataFrame({
         "observations": r.count(), "std": std, "vol_ann": vol, "downside_dev": downside,
         "var_95": var95, "cvar_95": r.where(r.le(var95)).mean(), "var_99": r.quantile(0.01),
-        "worst": r.min(), "max_drawdown": drawdown(r).min(), "sharpe": excess / vol, "sortino": excess / downside,
+        "worst": r.min(), "max_drawdown": drawdown(r).min(), "sharpe": mean_excess / vol, "sortino": mean_excess / downside,
     })

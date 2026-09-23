@@ -46,7 +46,7 @@ with rules_box.expander("Available metrics"):
     st.write(", ".join(f"`{m}`" for m in indicators.METRICS))
 
 ui.require(candidates, "No instruments match the universe filters.")
-snap = ui.snapshot(tuple(candidates.ticker), s.end).merge(candidates[["ticker", "name", "asset_class", "sector"]], on="ticker")
+snap = ui.snapshot(tuple(candidates.ticker), s.end, s.on("total_return")).merge(candidates[["ticker", "name", "asset_class", "sector"]], on="ticker")
 rules = filters.rules_from_records(edited.to_dict("records"))
 try:
     result = filters.apply(snap, rules)

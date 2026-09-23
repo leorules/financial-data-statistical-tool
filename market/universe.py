@@ -43,6 +43,7 @@ INDICES = _table("indices", "Equities", [
     ("^AXSO", "S&P/ASX Small Ordinaries", "index", "Australia", "AUD"),
     ("^NZ50", "NZX 50", "index", "New Zealand", "NZD"),
     ("^GSPC", "S&P 500", "index", "United States", "USD"),
+    ("^SP500TR", "S&P 500 Total Return", "index", "United States", "USD"),
     ("^DJI", "Dow Jones Industrial Average", "index", "United States", "USD"),
     ("^IXIC", "Nasdaq Composite", "index", "United States", "USD"),
     ("^NDX", "Nasdaq 100", "index", "United States", "USD"),

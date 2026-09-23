@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from market.config import benchmark_for
+from market.config import TOTAL_RETURN, benchmark_for
 
 YEAR = 252
 LOOKBACKS = {"ret_1d": 1, "ret_5d": 5, "ret_1m": 21, "ret_3m": 63, "ret_1y": YEAR}
@@ -31,7 +31,7 @@ def pct_ago(s: pd.Series, n: int) -> float:
     return s.iloc[-1] / s.iloc[-1 - n] - 1 if len(s) > n and s.iloc[-1 - n] else np.nan
 
 
-def metrics(bars: pd.DataFrame, bench_returns: pd.DataFrame) -> dict:
+def metrics(bars: pd.DataFrame, bench_returns: pd.DataFrame, total_return: bool = False) -> dict:
     """Snapshot metrics for one ticker's date-indexed daily bars."""
     close, adj = bars["close"], bars["adj_close"]
     year = bars.iloc[-YEAR:]
@@ -51,7 +51,7 @@ def metrics(bars: pd.DataFrame, bench_returns: pd.DataFrame) -> dict:
         "pct_from_52w_low": close.iloc[-1] / year["low"].min() - 1,
         "volume_ratio_20d": bars["volume"].iloc[-1] / (bars["volume"].iloc[-21:-1].mean() or np.nan),
     }
-    bench = benchmark_for(bars["ticker"].iloc[0])
+    bench = benchmark_for(bars["ticker"].iloc[0], total_return)
     if bench in bench_returns:
         pair = pd.concat([ret, bench_returns[bench]], axis=1).iloc[-YEAR:].dropna()
         cov = pair.cov().iloc[0, 1]
@@ -60,12 +60,15 @@ def metrics(bars: pd.DataFrame, bench_returns: pd.DataFrame) -> dict:
     return out
 
 
-def snapshot(long: pd.DataFrame, as_of=None) -> pd.DataFrame:
+BENCHMARKS = ("^AXJO", "^GSPC", *TOTAL_RETURN.values())
+
+
+def snapshot(long: pd.DataFrame, as_of=None, total_return: bool = False) -> pd.DataFrame:
     """One row of metrics per ticker, as of the given date."""
     df = long if as_of is None else long[long["date"] <= pd.Timestamp(as_of)]
     adj = df.pivot(index="date", columns="ticker", values="adj_close")
-    bench_returns = adj[[b for b in ("^AXJO", "^GSPC") if b in adj]].pct_change(fill_method=None)
-    rows = [{"ticker": t} | metrics(g.set_index("date"), bench_returns)
+    bench_returns = adj[[b for b in BENCHMARKS if b in adj]].pct_change(fill_method=None)
+    rows = [{"ticker": t} | metrics(g.set_index("date"), bench_returns, total_return)
             for t, g in df.groupby("ticker") if len(g) > 1]
     return pd.DataFrame(rows)
 

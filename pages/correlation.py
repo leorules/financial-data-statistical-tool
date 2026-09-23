@@ -1,3 +1,4 @@
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
@@ -11,6 +12,7 @@ corr_mod, mv = stats.correlation, stats.multivariate
 
 ui.header("Correlation & Covariance", "How tickers or asset classes move together: matrices, pairs, common factors "
                                      "and portfolios.")
+ui.adjustments_caption(s, "fdr", "hac", "shrinkage", "live_cash")
 with st.container(border=True):
     tickers, groups = ui.subject_picker()
     c1, c2, c3 = st.columns([3, 2, 1], vertical_alignment="bottom")
@@ -42,7 +44,8 @@ with st.container(border=True):
     ui.chart(fig.update_layout(coloraxis_colorbar=dict(thickness=10)), height=max(420, 30 * len(order)))
     ui.download(matrix, f"{method}_matrix")
 
-pvals = corr_mod.pvalues(r, "pearson" if method in ("partial", "covariance") else method).loc[order, order]
+raw_p = corr_mod.pvalues(r, "pearson" if method in ("partial", "covariance") else method).loc[order, order]
+pvals = corr_mod.correct(raw_p) if s.on("fdr") else raw_p
 explained, loadings = mv.pca(r)
 pairs = corr_mod.pairs(corr)
 pairs_tab, pvalue_tab, pair_tab, pca_tab, port_tab = st.tabs(
@@ -57,6 +60,16 @@ with pairs_tab:
 
 with pvalue_tab:
     st.caption("P-values for H0: no correlation. Darker cells (p < 0.05) are statistically significant.")
+    upper = np.triu_indices(len(pvals), k=1)
+    significant, tested = (pvals.to_numpy()[upper] < 0.05).sum(), len(upper[0])
+    if s.on("fdr"):
+        before = (raw_p.to_numpy()[upper] < 0.05).sum()
+        st.caption(f"{tested} pairs tested at once: {before} significant before the false-discovery correction, "
+                   f"{significant} after.")
+    else:
+        st.caption(f"{significant} of {tested} pairs are significant. With this many simultaneous tests, about "
+                   f"{0.05 * tested:.0f} would look significant by chance alone — switch on the false-discovery "
+                   "correction in the sidebar to allow for that.")
     fig = px.imshow(pvals, text_auto=".3f" if len(order) <= 20 else False, aspect="auto", zmin=0, zmax=0.1,
                     color_continuous_scale=ui.sequential()[::-1])
     ui.chart(fig.update_layout(coloraxis_colorbar=dict(thickness=10)), height=max(420, 30 * len(order)))
@@ -74,7 +87,7 @@ with pair_tab:
     ui.chart(px.scatter(r, x=b, y=a, trendline="ols", opacity=0.45, title="Return scatter with OLS fit"), left)
     lag = corr_mod.lead_lag(r[a], r[b], 10)
     ui.chart(px.bar(lag, x="lag", y="corr", title="Lead–lag (positive lag: B leads A)"), right)
-    st.dataframe(stats.regression.capm(r[a], r[b]).to_frame(f"{a} ~ {b}").T, hide_index=True)
+    st.dataframe(stats.regression.capm(r[a], r[b], hac=s.on("hac")).to_frame(f"{a} ~ {b}").T, hide_index=True)
 
 with pca_tab:
     fig = go.Figure([go.Bar(x=explained.component, y=explained.explained, name="Explained"),
@@ -88,7 +101,10 @@ with pca_tab:
     ui.chart(fig, height=max(320, 28 * len(loadings)))
 
 with port_tab:
-    table, weights = mv.portfolios(r)
+    table, weights = mv.portfolios(r, ui.risk_free(s, r.index), shrink=s.on("shrinkage"))
+    if s.on("shrinkage"):
+        st.caption(f"Ledoit–Wolf shrinkage intensity {mv.shrinkage_intensity(r):.0%} towards the structured "
+                   "target; higher means a noisier sample covariance.")
     st.dataframe(table, column_config=ui.percent(table, ["ann_return", "ann_vol"])
                  | {"sharpe": ui.NUM, "diversification_ratio": ui.NUM})
     fig = px.bar(weights, barmode="group", title="Weights", labels={"value": "", "index": ""})

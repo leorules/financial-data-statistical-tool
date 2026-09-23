@@ -4,6 +4,8 @@ from scipy import stats as st
 from scipy.cluster.hierarchy import leaves_list, linkage
 from scipy.spatial.distance import squareform
 
+from statsmodels.stats.multitest import multipletests
+
 from market.stats.core import periods_per_year
 
 TESTS = {"pearson": st.pearsonr, "spearman": st.spearmanr, "kendall": st.kendalltau}
@@ -13,14 +15,30 @@ def matrix(df: pd.DataFrame, method: str = "pearson") -> pd.DataFrame:
     return df.corr(method=method)
 
 
-def pvalues(df: pd.DataFrame, method: str = "pearson") -> pd.DataFrame:
+def pvalues(df: pd.DataFrame, method: str = "pearson", adjust: bool = False) -> pd.DataFrame:
+    """Pairwise p-values; `adjust` applies a Benjamini-Hochberg false-discovery correction across
+    every pair tested, so chance findings in a large matrix are not read as real."""
     cols = df.columns
     out = pd.DataFrame(0.0, index=cols, columns=cols)
     for i, a in enumerate(cols):
         for b in cols[i + 1:]:
             ab = df[[a, b]].dropna()
             out.loc[a, b] = out.loc[b, a] = TESTS[method](ab[a], ab[b]).pvalue if len(ab) > 2 else np.nan
-    return out
+    return correct(out) if adjust else out
+
+
+def correct(p: pd.DataFrame) -> pd.DataFrame:
+    """Benjamini-Hochberg across the upper triangle, mirrored back into a full matrix."""
+    rows, cols = np.triu_indices(len(p), k=1)
+    raw = p.to_numpy()[rows, cols]
+    usable = np.isfinite(raw)
+    if not usable.any():
+        return p
+    adjusted = raw.copy()
+    adjusted[usable] = multipletests(raw[usable], method="fdr_bh")[1]
+    out = p.to_numpy(copy=True)
+    out[rows, cols] = out[cols, rows] = adjusted
+    return pd.DataFrame(out, index=p.index, columns=p.columns)
 
 
 def covariance(df: pd.DataFrame, annualise: bool = True) -> pd.DataFrame:
