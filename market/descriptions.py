@@ -104,6 +104,18 @@ CURATED = {
            "Index including collateral interest. As a note, it also carries the issuer's credit risk.",
     "REET": "iShares Global REIT ETF: listed real estate investment trusts in developed and emerging markets.",
     "USRT": "iShares Core U.S. REIT ETF: US equity REITs (FTSE Nareit Equity REITs).",
+    "IGF": "iShares Global Infrastructure ETF: listed owners and operators of toll roads, airports, ports, "
+           "pipelines and utilities worldwide, tracking the S&P Global Infrastructure Index.",
+    "GII": "SPDR S&P Global Infrastructure ETF: the same S&P Global Infrastructure Index as IGF, from a different "
+           "issuer.",
+    "NFRA": "FlexShares STOXX Global Broad Infrastructure ETF: a wider infrastructure definition that adds "
+            "communications and energy assets to transport and utilities.",
+    "TOLZ": "ProShares DJ Brookfield Global Infrastructure ETF: pure-play infrastructure owners, excluding "
+            "companies that mainly operate rather than own the assets.",
+    "IFRA.AX": "VanEck FTSE Global Infrastructure (Hedged) ETF: global listed infrastructure with the currency "
+               "exposure hedged back to Australian dollars.",
+    "VBLD.AX": "Vanguard Global Infrastructure Index ETF: global listed infrastructure, unhedged, on the FTSE "
+               "Developed Core Infrastructure 50/50 Index.",
     "QAI": "NYLI Hedge Multi-Strategy Tracker ETF: aims to replicate the combined returns of hedge fund strategies "
            "using liquid ETFs.",
     "GLD": "SPDR Gold Shares: an ETF backed by physical gold bullion.",

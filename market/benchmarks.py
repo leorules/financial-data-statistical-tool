@@ -26,6 +26,12 @@ TABLE = pd.DataFrame([
     ("Real estate", "United States", "FTSE Nareit Equity REITs", "FTSE Russell / Nareit", "USRT", "tracker", False,
      "iShares Core US REIT ETF"),
     ("Real estate", "Australia", "S&P/ASX 200 A-REIT", "S&P Dow Jones Indices", "^AXPJ", "index", False, "Price index"),
+    ("Infrastructure", "Global", "S&P Global Infrastructure", "S&P Dow Jones Indices", "IGF", "proxy", True,
+     "iShares ETF tracking the index. Listed infrastructure stands in for unlisted exposure: MSCI's Global "
+     "Quarterly Infrastructure Asset Index is the benchmark super funds use, but it is licensed, quarterly "
+     "and appraisal-based, so it has no public series"),
+    ("Infrastructure", "Australia", "FTSE Developed Core Infrastructure 50/50", "FTSE Russell", "IFRA.AX", "proxy",
+     False, "VanEck AUD-hedged ETF; the MSCI Australia Quarterly Private Infrastructure Fund Index is not public"),
     ("Currencies", "Global", "ICE US Dollar Index (DXY)", "ICE", "DX-Y.NYB", "index", True, "USD vs six major currencies"),
     ("Currencies", "Australia", "AUD/USD", "WM/Reuters", "AUDUSD=X", "proxy", False,
      "Stand-in for the RBA trade-weighted index, which Yahoo does not carry"),

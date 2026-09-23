@@ -12,8 +12,8 @@ LABELS = {"indices": "Indices", "etfs": "ETFs", "commodities": "Commodities", "r
           "crypto": "Crypto", "asx200": "ASX 200", "asx_listed": "ASX (all listed)", "sp500": "S&P 500",
           "custom": "Custom"}
 HEADERS = {"User-Agent": "Mozilla/5.0 market-dashboard"}
-ASSET_CLASSES = ["Equities", "Fixed income", "Cash", "Commodities", "Real estate", "Currencies", "Crypto",
-                 "Alternatives", "Rates", "Volatility", "Other"]
+ASSET_CLASSES = ["Equities", "Fixed income", "Cash", "Commodities", "Real estate", "Infrastructure", "Currencies",
+                 "Crypto", "Alternatives", "Rates", "Volatility", "Other"]
 COLUMNS = ["ticker", "name", "type", "exchange", "currency", "sector", "universe", "asset_class"]
 # Instrument types grouped into the kinds people pick between, in the order they are offered.
 KINDS = {"Indices": ("index",), "Sector indices": ("sector",), "ETFs": ("etf", "sector etf", "etn"),
@@ -131,6 +131,12 @@ ETFS = _table("etfs", "Equities", [
     ("DJP", "iPath Bloomberg Commodity Index Total Return ETN", "etn", "Global", "USD", "Commodities"),
     ("REET", "iShares Global REIT ETF", "etf", "Global", "USD", "Real estate"),
     ("USRT", "iShares Core U.S. REIT ETF", "etf", "United States", "USD", "Real estate"),
+    ("IGF", "iShares Global Infrastructure ETF", "etf", "Global", "USD", "Infrastructure"),
+    ("GII", "SPDR S&P Global Infrastructure ETF", "etf", "Global", "USD", "Infrastructure"),
+    ("NFRA", "FlexShares STOXX Global Broad Infrastructure ETF", "etf", "Global", "USD", "Infrastructure"),
+    ("TOLZ", "ProShares DJ Brookfield Global Infrastructure ETF", "etf", "Global", "USD", "Infrastructure"),
+    ("IFRA.AX", "VanEck FTSE Global Infrastructure (Hedged) ETF", "etf", "Australia", "AUD", "Infrastructure"),
+    ("VBLD.AX", "Vanguard Global Infrastructure Index ETF", "etf", "Australia", "AUD", "Infrastructure"),
     ("QAI", "NYLI Hedge Multi-Strategy Tracker ETF", "etf", "Global", "USD", "Alternatives"),
     ("GLD", "SPDR Gold Shares", "etf", "United States", "USD", "Commodities"),
     ("SLV", "iShares Silver Trust", "etf", "United States", "USD", "Commodities"),

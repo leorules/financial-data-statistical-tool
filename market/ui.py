@@ -22,7 +22,8 @@ MARKETS = ["^AXJO", "^GSPC", "^N225", "^FTSE", "GC=F", "CL=F", "^TNX", "AUDUSD=X
 FILTERS = {"asset_class": "Asset class", "exchange": "Region", "universe": "List", "sector": "Sector", "type": "Type"}
 SERIES = {"light": ["#0051ff", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"],
           "dark": ["#4b85fe", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"]}
-BENCHMARK_DEFAULT = ["Equities", "Fixed income", "Cash", "Commodities", "Real estate", "Currencies"]
+BENCHMARK_DEFAULT = ["Equities", "Fixed income", "Cash", "Commodities", "Real estate", "Infrastructure",
+                     "Currencies"]
 BLUES = ["#dde8fe", "#b5cefe", "#83adfe", "#4b85fe", "#0051ff", "#0036ba", "#001775"]
 
 

@@ -42,6 +42,8 @@ in `market/interpret.py`. Free, instant and offline.
 On the analysis pages, **Analyse → Asset classes** represents each asset class by its standard benchmark
 (`market/benchmarks.py`): the index itself where Yahoo has it, otherwise an ETF/ETN that tracks it or the closest proxy.
 
+Infrastructure is represented by **listed** infrastructure, which is a proxy rather than a tracker. The benchmark institutions actually use for unlisted infrastructure is MSCI's Global Quarterly Infrastructure Asset Index (and its Australian equivalent), which is licensed, quarterly and appraisal-based, so no public series exists. Listed infrastructure behaves differently: IGF runs an equity beta of 0.72 against the S&P 500 and fell 42% at its worst, where unlisted valuations are smoothed and lag by a quarter or more.
+
 | Asset class | Global (headline) | United States | Australia |
 |---|---|---|---|
 | Equities | MSCI ACWI (index) | S&P 500 | S&P/ASX 200 |
@@ -49,6 +51,7 @@ On the analysis pages, **Analyse → Asset classes** represents each asset class
 | Cash | – | ICE BofA 3M T-Bill via BIL (headline) | AusBond Bank Bill via BILL.AX |
 | Commodities | Bloomberg Commodity Index via DJP | – | – |
 | Real estate | FTSE EPRA Nareit Global REITs (REET) | FTSE Nareit Equity REITs (USRT) | S&P/ASX 200 A-REIT |
+| Infrastructure | S&P Global Infrastructure via IGF | – | FTSE Developed Core Infrastructure 50/50 via IFRA.AX |
 | Currencies | ICE US Dollar Index (DXY) | – | AUD/USD |
 | Crypto | Bloomberg Galaxy Crypto Index, BTC-USD as proxy | – | – |
 | Alternatives | HFRI Fund Weighted Composite, QAI as proxy | – | – |
