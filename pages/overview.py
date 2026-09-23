@@ -11,7 +11,6 @@ s = ui.settings()
 inst = ui.instruments()
 ui.require(inst)
 PERIOD = {"D": "day", "W": "week", "M": "month"}[s.freq]
-VOL_WINDOWS = {"D": [20, 63, 126, 252], "W": [4, 13, 26, 52], "M": [3, 6, 12]}[s.freq]
 RISK_COLUMNS = {
     "std": ("Std dev", f"Standard deviation of {PERIOD}ly returns"),
     "vol_ann": ("Volatility", "Annualised standard deviation"),
@@ -42,19 +41,22 @@ with st.container(border=True):
     ticker = c3.selectbox("Instrument", tickers, index=tickers.index("^AXJO") if "^AXJO" in tickers else 0,
                           format_func=ui.label)
     smas = c4.multiselect("Moving averages", [20, 50, 100, 200], default=[50, 200])
+    daily = ui.prices((ticker,)).set_index("date").drop(columns="ticker")
+    bars = resample.ohlcv(daily, s.freq)
+    per_month = stats.periods_per_year(bars.index) / 12
+    longest = max(2, int(len(bars) / per_month))
     c5, c6 = st.columns(2)
-    vol_windows = c5.multiselect("Rolling volatility on chart", VOL_WINDOWS, default=VOL_WINDOWS[:2],
-                                 format_func=lambda n: f"{n} {PERIOD}s",
-                                 help="Annualised standard deviation of returns over each trailing window")
+    months = c5.slider("Rolling volatility window", 1, longest, min(12, longest), format="%d months",
+                       help="Annualised standard deviation of returns over this trailing window, from one month "
+                            "up to the instrument's full history")
     stress_periods = ui.stress_picker("overview_stress", c6)
 
-daily = ui.prices((ticker,)).set_index("date").drop(columns="ticker")
-bars = resample.ohlcv(daily, s.freq)
+window = max(2, round(months * per_month))
 for n in smas:
     bars[f"SMA {n}"] = indicators.sma(bars["close"], n)
 bar_returns = bars["adj_close"].pct_change(fill_method=None)
-for n in vol_windows:  # computed on full history so the start of the range is not blank
-    bars[f"Vol {n}"] = bar_returns.rolling(n).std() * np.sqrt(stats.periods_per_year(bars.index))
+# computed on full history so the start of the range is not blank
+bars["Vol"] = bar_returns.rolling(window).std() * np.sqrt(stats.periods_per_year(bars.index))
 view = bars.loc[str(s.start or bars.index[0]):str(s.end)]
 ui.require(view, "No data in the selected range.")
 
@@ -86,9 +88,8 @@ fig.add_trace(go.Candlestick(x=view.index, open=view.open, high=view.high, low=v
 for n, slot in zip(smas, (1, 7, 4, 5)):  # slots away from the green/red candles
     fig.add_trace(go.Scatter(x=view.index, y=view[f"SMA {n}"], name=f"SMA {n}", mode="lines",
                              line_color=ui.series_color(slot)), row=1, col=1)
-for n, slot in zip(vol_windows, (2, 3, 5, 8)):
-    fig.add_trace(go.Scatter(x=view.index, y=view[f"Vol {n}"], name=f"Vol {n}{PERIOD[0]}", mode="lines",
-                             line_color=ui.series_color(slot)), row=2, col=1)
+fig.add_trace(go.Scatter(x=view.index, y=view["Vol"], name=f"Vol {months}m · {window} {PERIOD}s", mode="lines",
+                         line_color=ui.series_color(2)), row=2, col=1)
 fig.add_hline(y=risk.vol_ann, line_dash="dot", line_color=ui.MUTED, row=2, col=1,
               annotation_text=f"range average {risk.vol_ann:.1%}", annotation_position="top right")
 fig.update_yaxes(tickformat=".0%", rangemode="tozero", row=2, col=1)
