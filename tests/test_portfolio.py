@@ -65,3 +65,35 @@ def test_save_load_and_delete(temp_db, holdings):
 
     portfolio.delete("Main")
     assert portfolio.names() == [] and portfolio.load("Main")[0].empty
+
+
+def test_a_late_listing_holding_does_not_invent_a_return():
+    idx = pd.bdate_range("2024-01-01", periods=200)
+    prices = pd.DataFrame({"OLD": np.linspace(10, 11, 200), "NEW": np.nan}, index=idx)
+    prices.loc[idx[100]:, "NEW"] = np.linspace(20, 21, 100)
+    held = pd.DataFrame({"ticker": ["OLD", "NEW"], "units": [1000.0, 500.0], "cost_price": [10.0, 20.0]})
+
+    values = portfolio.values(held, prices)
+    assert values.index[0] == idx[100], "the series starts where every holding has a price"
+    total = portfolio.series(values, 0.0)
+    step = total.pct_change().abs().max()
+    assert step < 0.01, "both holdings are straight lines, so no day should jump"
+    assert portfolio.shortest_history(held, prices) == "NEW"
+
+
+def test_concentration_and_grouping():
+    weights = pd.Series({"A": 0.4, "B": 0.3, "C": 0.2, "D": 0.1})
+    c = portfolio.concentration(weights)
+    assert c["largest"] == 0.4 and c["top_5"] == pytest.approx(1.0)
+    assert c["effective_holdings"] == pytest.approx(1 / 0.30)  # 0.16+0.09+0.04+0.01, weights already sum to 1
+    # Cash sits outside the invested weights, so it cannot inflate the effective count.
+    half_cash = pd.Series({"A": 0.2, "B": 0.15, "C": 0.1, "D": 0.05})
+    assert portfolio.concentration(half_cash)["effective_holdings"] == pytest.approx(1 / 0.30)
+    equal = portfolio.concentration(pd.Series(0.25, index=list("ABCD")))
+    assert equal["effective_holdings"] == pytest.approx(4.0)
+
+    table = pd.DataFrame({"value": [60.0, 40.0], "weight": [0.6, 0.4]}, index=["A", "B"])
+    inst = pd.DataFrame({"ticker": ["A", "B"], "asset_class": ["Equities", "Equities"], "sector": ["Banks", "Miners"]})
+    by_class = portfolio.by_group(table, inst, "asset_class")
+    assert by_class.loc["Equities", "weight"] == pytest.approx(1.0)
+    assert portfolio.by_group(table, inst, "sector").index.tolist() == ["Banks", "Miners"]

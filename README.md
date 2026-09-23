@@ -34,7 +34,7 @@ in `market/interpret.py`. Free, instant and offline.
 | Compare | Rebased performance, risk table, drawdowns (tickers or asset classes) |
 | Correlation | Correlation/covariance matrices, p-values, pair analysis, PCA, portfolios (tickers or asset classes) |
 | Statistics | Descriptive, rolling, distribution, hypothesis tests, risk, regression, time series, seasonality (tickers or asset classes) |
-| Portfolio | Holdings with cost base and cash: value vs benchmark, positions, contribution to return, contribution to risk, portfolio risk metrics, and the portfolio through past stress periods |
+| Portfolio | Holdings with cost base and cash: value vs benchmark, weights by holding, asset class or sector, concentration, positions, contribution to return, contribution to risk, portfolio risk metrics, and the portfolio through past stress periods |
 | Stress Periods | Pick a stress period (Great Depression, GFC, COVID-19 crash…) or add your own: indexed chart, per-series impact, volatility and recovery times, correlation shift, basket stress test |
 | Code Lab | Python editor with `prices()`, `returns()`, `stats`, `px`, `plt`, `show()` preloaded |
 | Data Manager | Refresh data, custom tickers, ingest log |

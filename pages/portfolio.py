@@ -51,6 +51,10 @@ if missing:
     st.caption(f"No price data in this range for: {', '.join(missing)}")
 values = portfolio.values(held, prices)
 ui.require(values.columns, "None of these holdings have prices in the selected range.")
+if len(values) and values.index[0] > prices.index[0]:
+    limiting = portfolio.shortest_history(held, prices)
+    st.caption(f"Measured from {values.index[0]:%d %b %Y}, the first date every holding has a price "
+               f"({limiting} has the shortest history). Starting earlier would count its arrival as a gain.")
 
 total = portfolio.series(values, cash)
 table = portfolio.positions(held, values, cash)
@@ -77,8 +81,27 @@ with left.container(border=True):
     ui.shade_stress(fig, ui.stress_picker("portfolio_stress"), s)
     ui.chart(fig, height=380)
 with right.container(border=True):
-    ui.chart(px.pie(table.reset_index(), names="ticker", values="value", hole=0.55, title="Weights")
-             .update_traces(textinfo="label+percent"), height=380)
+    grouping = st.segmented_control("Weights by", ["Holding", "Asset class", "Sector"], default="Holding",
+                                    required=True, key="weights_by")
+    if grouping == "Holding":
+        shares = table.weight.rename("weight").to_frame()
+    else:
+        shares = portfolio.by_group(table, inst, {"Asset class": "asset_class", "Sector": "sector"}[grouping])
+    fig = px.bar(shares.sort_values("weight"), x="weight", y=shares.sort_values("weight").index, orientation="h",
+                 labels={"weight": "", "y": ""}, text_auto=".1%")
+    ui.chart(fig.update_layout(showlegend=False, xaxis_tickformat=".0%"), height=340)
+
+conc = portfolio.concentration(table.weight)
+with st.container(border=True):
+    st.markdown("**Concentration**", help="How much of the portfolio depends on its largest positions.")
+    for col, (label, value, help_text) in zip(st.columns(3), [
+        ("Largest position", f"{conc['largest']:.1%}", "Weight of the single biggest holding"),
+        ("Top 5 weight", f"{conc['top_5']:.1%}", "Combined weight of the five largest holdings"),
+        ("Effective holdings", f"{conc['effective_holdings']:.1f}",
+         f"Equivalent number of equally weighted positions, from {len(table)} actual holdings. "
+         "Measured on the invested weights, so cash does not flatter it"),
+    ]):
+        col.metric(label, value, help=help_text)
 
 with st.container(border=True):
     st.markdown("**Positions**")
@@ -90,7 +113,12 @@ with st.container(border=True):
         "profit": st.column_config.NumberColumn("Unrealised P&L", format="dollar"),
         "return": st.column_config.NumberColumn("Return on cost", format="percent"),
         "weight": st.column_config.NumberColumn("Weight", format="percent")})
-    ui.download(table, f"portfolio_{name}")
+    d1, d2 = st.columns([1, 3])
+    with d1:
+        ui.download(table, f"portfolio_{name}")
+    if d2.button("Use as basket", icon=":material/shopping_basket:",
+                 help="Send these holdings to the sidebar basket for Compare, Correlation and Statistics"):
+        ui.set_basket(table.index.tolist())
 
 contribution = portfolio.contributions(values, cash)
 risk_table = portfolio.risk_contributions(returns, table.weight)

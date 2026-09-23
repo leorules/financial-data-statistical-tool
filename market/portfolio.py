@@ -36,10 +36,44 @@ def delete(name: str) -> None:
 
 
 def values(holdings: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFrame:
-    """Market value of each holding through time (units × price, carried over non-trading days)."""
+    """Market value of each holding through time (units × price, carried over non-trading days).
+
+    The series starts where every holding has a price. Starting earlier would let a holding that
+    listed mid-window arrive as a jump in portfolio value, which reads as a return that never happened.
+    """
     units = holdings.set_index("ticker").units
     held = [t for t in units.index if t in prices]
-    return prices[held].ffill().mul(units[held], axis=1).dropna(how="all")
+    wide = prices[held].ffill()
+    starts = [wide[t].first_valid_index() for t in held if wide[t].first_valid_index() is not None]
+    wide = wide.loc[max(starts):] if starts else wide
+    return wide.mul(units[held], axis=1).dropna(how="all")
+
+
+def shortest_history(holdings: pd.DataFrame, prices: pd.DataFrame) -> str | None:
+    """The holding whose prices start latest, which is what limits the common window."""
+    held = [t for t in holdings.ticker if t in prices]
+    starts = {t: prices[t].first_valid_index() for t in held}
+    starts = {t: d for t, d in starts.items() if d is not None}
+    return max(starts, key=starts.get) if starts else None
+
+
+def concentration(weights: pd.Series) -> dict:
+    """How much of the portfolio sits in few names: largest, top five, and the effective count.
+
+    Largest and top five are portfolio weights, so cash is in the denominator and they match the
+    positions table. The effective count is taken over the invested weights alone, since counting
+    cash as a holding would flatter it.
+    """
+    w = weights.sort_values(ascending=False)
+    invested = w / w.sum()
+    return {"largest": w.iloc[0], "top_5": w.head(5).sum(), "effective_holdings": 1 / (invested ** 2).sum()}
+
+
+def by_group(table: pd.DataFrame, instruments: pd.DataFrame, column: str) -> pd.DataFrame:
+    """Value and weight grouped by an instrument attribute, such as asset class or sector."""
+    group = instruments.set_index("ticker")[column].reindex(table.index).fillna("Unclassified")
+    out = table.assign(group=group).groupby("group")[["value", "weight"]].sum()
+    return out.sort_values("value", ascending=False)
 
 
 def positions(holdings: pd.DataFrame, values: pd.DataFrame, cash: float) -> pd.DataFrame:
