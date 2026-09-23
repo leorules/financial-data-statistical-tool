@@ -168,12 +168,19 @@ def require(items, message: str = "No data yet. Load some in **Data Manager**.")
         st.stop()
 
 
+def _sources_present(src, wide: pd.DataFrame) -> bool:
+    return src in wide if isinstance(src, str) else all(t in wide for t in src)
+
+
 def price_matrix(tickers, s: Settings, field: str = "adj_close", groups: dict | None = None) -> pd.DataFrame:
-    """Wide price matrix; with `groups` ({label: ticker}), benchmark series renamed to their asset-class labels."""
+    """Wide price matrix. A `groups` value is either a ticker or a {ticker: weight} blend, and the
+    resulting series is labelled with the group's name."""
     if groups:
-        wide = price_matrix(list(groups.values()), s, field)
-        return wide.rename(columns={ticker: name for name, ticker in groups.items()})[
-            [name for name, ticker in groups.items() if ticker in wide]]
+        needed = [t for src in groups.values() for t in ([src] if isinstance(src, str) else src)]
+        wide = price_matrix(needed, s, field)
+        built = {name: wide[src] if isinstance(src, str) else rets.blend(wide, src)
+                 for name, src in groups.items() if _sources_present(src, wide)}
+        return pd.DataFrame(built)
     tickers = list(dict.fromkeys(tickers))
     convert = s.currency != "native" and field != "volume"
     long = prices(tuple(tickers + ["AUDUSD=X"] * convert), s.start, s.end)
@@ -216,7 +223,7 @@ def subject_picker() -> tuple[list[str], dict | None]:
                              default=[c for c in BENCHMARK_DEFAULT if c in available] or available[:1])
     regions = c2.multiselect("Regions", benchmarks.REGIONS[basis], placeholder="Headline benchmark for each class")
     chosen = benchmark_table(benchmarks.select(classes, regions, basis), inst)
-    return chosen.label.tolist(), dict(zip(chosen.label, chosen.ticker))
+    return chosen.label.tolist(), dict(zip(chosen.label, chosen.source))
 
 
 def benchmark_basis(container=None) -> str:
@@ -228,21 +235,28 @@ def benchmark_basis(container=None) -> str:
 
 
 def benchmark_table(chosen: pd.DataFrame, inst: pd.DataFrame) -> pd.DataFrame:
-    """Show which series stands in for each benchmark, and drop the ones with no data behind them."""
-    missing = chosen[chosen.ticker.isna()]
-    chosen = chosen.dropna(subset=["ticker"])
-    loaded = chosen.ticker.isin(set(inst.ticker))
-    if not loaded.all():
-        st.caption(f"Not downloaded yet: {', '.join(chosen.ticker[~loaded])}. Refresh the built-in lists in Data Manager.")
-    chosen = chosen[loaded]
+    """Show what stands in for each benchmark, and drop the ones with nothing behind them."""
+    held = set(inst.ticker)
+    chosen = chosen.assign(source=chosen.apply(benchmarks.source, axis=1))
+    usable = chosen.source.map(lambda src: _sources_held(src, held))
+    missing, chosen = chosen[~usable], chosen[usable]
     with st.expander(f"Benchmarks used ({len(chosen)})"):
         st.dataframe(chosen[["label", "benchmark", "provider", "ticker", "code", "series", "note"]], hide_index=True,
                      column_config={"label": "Analysed as", "code": "APRA code", "series": st.column_config.TextColumn(
-                         "Series", help="index: the benchmark itself · tracker: an ETF/ETN tracking it · proxy: closest stand-in")})
+                         "Series", help="index: the benchmark itself · tracker: an ETF/ETN tracking it · "
+                                        "proxy: closest stand-in · composite: a weighted blend of other rows")})
+        for _, row in chosen[chosen.series == "composite"].iterrows():
+            st.caption(f"**{row.label}** = " + " + ".join(f"{w:.1%} {t}" for t, w in row.blend.items()))
         if len(missing):
-            st.caption(f"No public series for {len(missing)}: "
+            st.caption(f"No series available for {len(missing)}: "
                        + "; ".join(f"**{r.label}** — {r.note}" for _, r in missing.iterrows()))
     return chosen
+
+
+def _sources_held(src, held: set) -> bool:
+    if src is None:
+        return False
+    return src in held if isinstance(src, str) else all(t in held for t in src)
 
 
 SECTIONS = (("findings", ":material/query_stats: What the numbers show"),

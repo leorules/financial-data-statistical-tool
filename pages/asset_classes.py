@@ -42,6 +42,11 @@ with st.container(border=True):
         st.caption(f"The {basis} category has no benchmark for that asset class, so every {basis} class is shown.")
     bench = benchmarks.select(wanted or benchmarks.classes(basis), benchmarks.REGIONS[basis], basis)
     bench = ui.benchmark_table(bench, inst)
+    composites = bench[bench.ticker.isna()]
+    if len(composites):
+        st.caption(f"{len(composites)} composite benchmark(s) are charted on the analysis pages but have no "
+                   "single instrument, so they are left out of the table below.")
+    bench = bench.dropna(subset=["ticker"])
     bench = bench.merge(ui.snapshot(tuple(bench.ticker), s.end, s.on("total_return")), on="ticker")
 if len(bench):
     with st.container(border=True):

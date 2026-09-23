@@ -10,7 +10,16 @@ import pandas as pd
 BASES = ["Standard", "APRA"]
 REGIONS = {"Standard": ["Global", "United States", "Australia"], "APRA": ["Australia", "International"]}
 COLUMNS = ["basis", "asset_class", "region", "variant", "benchmark", "provider", "ticker", "code", "series",
-           "headline", "note"]
+           "headline", "note", "blend"]
+
+# APRA defines its alternatives benchmarks as weighted blends of its own equity and bond rows, so they
+# are built from the same proxies rather than needing a series of their own.
+HEDGED, UNHEDGED, GLOBAL_BONDS = "VGAD.AX", "VGS.AX", "VBND.AX"
+BLENDS = {
+    "Alternatives": {HEDGED: 0.25, UNHEDGED: 0.25, GLOBAL_BONDS: 0.50},
+    "Alternatives · defensive": {HEDGED: 0.125, UNHEDGED: 0.125, GLOBAL_BONDS: 0.75},
+    "Alternatives · growth": {HEDGED: 0.375, UNHEDGED: 0.375, GLOBAL_BONDS: 0.25},
+}
 
 # series: "index" = the benchmark itself; "tracker" = an ETF/ETN that tracks it; "proxy" = closest stand-in.
 STANDARD = [
@@ -108,12 +117,12 @@ APRA = [
     ("Cash", "International", "", "Bloomberg AusBond Bank Bill", "Bloomberg", "BILL.AX", "BAUBIL", False,
      "Same index as Australian cash"),
     ("Alternatives", "International", "", "25% international equity hedged, 25% unhedged, 50% international fixed "
-     "income", "APRA", None, None, True, "A composite of the rows above, not a published index"),
+     "income", "APRA", None, None, True, "Built from the prescribed rows above; not a published index"),
     ("Alternatives", "International", "defensive", "12.5% international equity hedged, 12.5% unhedged, 75% "
-     "international fixed income", "APRA", None, None, False, "A composite of the rows above"),
+     "international fixed income", "APRA", None, None, False, "Built from the prescribed rows above"),
     ("Alternatives", "International", "growth", "37.5% international equity hedged, 37.5% unhedged, 25% "
      "international fixed income", "APRA", None, None, False,
-     "A composite of the rows above. Private equity is measured against this, having no benchmark of its own"),
+     "Built from the prescribed rows above. Private equity is measured against this, having no benchmark of its own"),
 ]
 
 
@@ -121,11 +130,14 @@ def _frame(basis: str, rows: list[tuple]) -> pd.DataFrame:
     """Standard rows carry a `series` kind; APRA rows carry an index code and are all proxies."""
     if basis == "Standard":
         df = pd.DataFrame(rows, columns=["asset_class", "region", "variant", "benchmark", "provider", "ticker",
-                                         "series", "headline", "note"]).assign(code=None)
+                                         "series", "headline", "note"]).assign(code=None, blend=None)
     else:
         df = pd.DataFrame(rows, columns=["asset_class", "region", "variant", "benchmark", "provider", "ticker",
                                          "code", "headline", "note"])
-        df["series"] = df.ticker.map(lambda t: "proxy" if pd.notna(t) else "unavailable")
+        key = df.asset_class + df.variant.map(lambda v: f" · {v}" if v else "")
+        df["blend"] = key.map(BLENDS)
+        df["series"] = [("proxy" if pd.notna(tick) else "composite" if isinstance(mix, dict) else "unavailable")
+                        for tick, mix in zip(df.ticker, df.blend)]
     return df.assign(basis=basis)[COLUMNS]
 
 
@@ -147,6 +159,13 @@ def select(asset_classes: list[str], regions: list[str] | None = None, basis: st
     return rows.assign(label=label).reset_index(drop=True)
 
 
+def source(row):
+    """What to price this benchmark from: a ticker, a {ticker: weight} blend, or None."""
+    return row.blend if isinstance(row.blend, dict) else (row.ticker if pd.notna(row.ticker) else None)
+
+
 def describe(row) -> str:
-    """'MSCI ACWI', or 'Bloomberg Global Aggregate via AGGG.L' when a tracker or proxy stands in for the index."""
+    """'MSCI ACWI', or 'Bloomberg Global Aggregate via AGGG.L' when a series stands in for the index."""
+    if isinstance(row.blend, dict):
+        return f"{row.benchmark} via {', '.join(f'{w:.1%} {t}' for t, w in row.blend.items())}"
     return row.benchmark if row.series == "index" else f"{row.benchmark} via {row.ticker}"

@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 from scipy import stats as st
 
-from market import stats
+from market import returns, stats
 
 
 @pytest.fixture
@@ -128,3 +128,17 @@ def test_risk_cross_section_matches_single_series(rng, dates):
     assert table.loc["b", "max_drawdown"] == pytest.approx(single.max_drawdown)
     assert table.loc["a", "var_95"] == pytest.approx(r["a"].quantile(0.05))
     assert table.loc["a", "cvar_95"] < table.loc["a", "var_95"]
+
+
+def test_blend_compounds_weighted_component_returns():
+    idx = pd.bdate_range("2020-01-01", periods=120)
+    rng = np.random.default_rng(4)
+    wide = pd.DataFrame({c: 100 * np.cumprod(1 + rng.normal(0.0003, v, len(idx)))
+                         for c, v in [("A", 0.012), ("B", 0.004)]}, index=idx)
+    blended = returns.blend(wide, {"A": 0.25, "B": 0.75})
+    manual = (1 + wide.pct_change().dropna().mul([0.25, 0.75]).sum(axis=1)).cumprod() * 100
+    assert blended.iloc[0] == 100
+    assert np.allclose(blended.iloc[1:], manual)
+    # Weights are normalised, and the blend sits between its components on risk.
+    assert np.allclose(returns.blend(wide, {"A": 1, "B": 3}), blended)
+    assert blended.pct_change().std() < wide.A.pct_change().std()

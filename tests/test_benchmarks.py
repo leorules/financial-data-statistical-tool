@@ -26,8 +26,9 @@ def test_the_two_benchmark_categories_are_separate_and_complete():
     assert len(apra) == 26, "APRA prescribes 26 covered asset classes"
     assert set(standard.region) <= set(benchmarks.REGIONS["Standard"])
     assert set(apra.region) <= set(benchmarks.REGIONS["APRA"])
-    # Every prescribed row either has a proxy with a ticker, or is explicitly unavailable with a reason.
-    assert ((apra.series == "unavailable") == apra.ticker.isna()).all()
+    # Every prescribed row is priced from a ticker, built as a blend, or explicitly unavailable with a reason.
+    assert (apra.ticker.notna() == (apra.series == "proxy")).all()
+    assert (apra.series.isin(["proxy", "composite", "unavailable"])).all()
     assert apra[apra.series == "unavailable"].note.str.len().gt(0).all()
 
 
@@ -42,3 +43,22 @@ def test_apra_codes_are_recorded_for_published_indices():
     apra = benchmarks.TABLE[benchmarks.TABLE.basis == "APRA"]
     assert apra.set_index("benchmark").code.get("S&P/ASX 300 Total Return") == "ASA52"
     assert apra[apra.code.notna()].shape[0] == 19, "four unlisted indices and three composites have no code"
+
+
+def test_the_alternatives_composites_are_built_from_the_prescribed_rows():
+    apra = benchmarks.TABLE[benchmarks.TABLE.basis == "APRA"]
+    composites = apra[apra.series == "composite"]
+    assert len(composites) == 3, "APRA defines three alternatives blends"
+    for _, row in composites.iterrows():
+        assert abs(sum(row.blend.values()) - 1) < 1e-9
+        assert set(row.blend) <= set(apra.ticker.dropna()), "components must be other prescribed rows"
+        assert benchmarks.source(row) == row.blend
+    growth = composites.set_index("variant").loc["growth", "blend"]
+    assert growth == {"VGAD.AX": 0.375, "VGS.AX": 0.375, "VBND.AX": 0.25}
+
+
+def test_source_prefers_a_blend_then_a_ticker():
+    equities = benchmarks.select(["Equities"], ["Australia"], "APRA").iloc[0]
+    assert benchmarks.source(equities) == "VAS.AX"
+    assert "via 37.5% VGAD.AX" in benchmarks.describe(
+        benchmarks.TABLE[benchmarks.TABLE.variant == "growth"].iloc[0])

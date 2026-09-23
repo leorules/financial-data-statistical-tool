@@ -46,9 +46,11 @@ On the analysis pages, **Analyse → Asset classes** represents each asset class
   has it, otherwise an ETF/ETN that tracks it or the closest proxy.
 - **APRA** — all 26 indices prescribed for the Australian superannuation performance test, each with APRA's own
   index code. Most prescribed series are licensed, unlisted or quarterly, so each is represented by the closest
-  AUD-listed proxy. Eight have no public series at all — the four unlisted property and infrastructure indices,
-  the three alternatives composites, and hedged emerging-market equity — and are listed as unavailable with the
-  reason rather than quietly dropped.
+  AUD-listed proxy. The three alternatives benchmarks are defined by APRA as weighted blends of its own equity
+  and bond rows, so they are built from the same proxies and rebalanced every period
+  (`market/returns.py:blend`). Five have no series at all — the four unlisted property and infrastructure
+  indices and hedged emerging-market equity — and are listed as unavailable with the reason rather than
+  quietly dropped.
 
 Infrastructure is represented by **listed** infrastructure, which is a proxy rather than a tracker. The benchmark institutions actually use for unlisted infrastructure is MSCI's Global Quarterly Infrastructure Asset Index (and its Australian equivalent), which is licensed, quarterly and appraisal-based, so no public series exists. Listed infrastructure behaves differently: IGF runs an equity beta of 0.72 against the S&P 500 and fell 42% at its worst, where unlisted valuations are smoothed and lag by a quarter or more.
 

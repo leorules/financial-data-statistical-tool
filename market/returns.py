@@ -24,6 +24,20 @@ def to_currency(wide: pd.DataFrame, currencies: dict[str, str], audusd: pd.Serie
     return out
 
 
+def blend(wide: pd.DataFrame, weights: dict[str, float]) -> pd.Series:
+    """Fixed-weight composite index from 100: the weighted average of component returns, compounded.
+
+    Constant weights mean the composite is rebalanced every period, which is how a blended benchmark
+    is defined. Periods where any component is missing are dropped.
+    """
+    parts = wide[list(weights)].dropna()
+    if parts.empty:
+        return pd.Series(dtype=float)
+    w = pd.Series(weights, dtype=float)
+    steps = parts.pct_change(fill_method=None).fillna(0).mul(w / w.sum(), axis=1).sum(axis=1)
+    return (1 + steps).cumprod() * 100
+
+
 def compute(prices: pd.DataFrame, freq: str = "D", kind: str = "simple",
             align: str = "inner", min_obs: int = MIN_OBS) -> pd.DataFrame:
     """Aligned return matrix. `inner` keeps only dates where every ticker traded; `ffill` carries prices over gaps."""
