@@ -17,13 +17,13 @@ DEFAULT_BASKET = ["^AXJO", "^GSPC", "BHP.AX", "RIO.AX", "FMG.AX", "CBA.AX", "SPY
 PCT = st.column_config.NumberColumn(format="percent")
 NUM = st.column_config.NumberColumn(format="%.3f")
 UP, DOWN = "#0ca30c", "#d03b3b"
-MUTED = "#898781"
+MUTED = "#7d8ca6"
 MARKETS = ["^AXJO", "^GSPC", "^N225", "^FTSE", "GC=F", "CL=F", "^TNX", "AUDUSD=X"]
 FILTERS = {"asset_class": "Asset class", "exchange": "Region", "universe": "List", "sector": "Sector", "type": "Type"}
-SERIES = {"light": ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"],
-          "dark": ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"]}
+SERIES = {"light": ["#0051ff", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"],
+          "dark": ["#4b85fe", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"]}
 BENCHMARK_DEFAULT = ["Equities", "Fixed income", "Cash", "Commodities", "Real estate", "Currencies"]
-BLUES = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
+BLUES = ["#dde8fe", "#b5cefe", "#83adfe", "#4b85fe", "#0051ff", "#0036ba", "#001775"]
 
 
 @dataclass(frozen=True)
@@ -218,7 +218,7 @@ def series_color(slot: int) -> str:
 
 def diverging() -> list:
     """Red (negative) → neutral gray → blue (positive), for correlations and returns."""
-    return [[0, "#e34948"], [0.5, "#383835" if dark() else "#f0efec"], [1, "#3987e5" if dark() else "#2a78d6"]]
+    return [[0, "#e34948"], [0.5, "#1e3554" if dark() else "#eef3fb"], [1, "#4b85fe" if dark() else "#0051ff"]]
 
 
 def sequential() -> list[str]:

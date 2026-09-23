@@ -17,29 +17,29 @@ showWidgetBorder = true
 showSidebarBorder = true
 
 [theme.light]
-primaryColor = "#2a78d6"
-backgroundColor = "#f9f9f7"
-secondaryBackgroundColor = "#f0efec"
-textColor = "#0b0b0b"
-borderColor = "#e1e0d9"
-dataframeBorderColor = "#e1e0d9"
-chartCategoricalColors = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"]
-chartSequentialColors = ["#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#3987e5", "#2a78d6", "#1c5cab", "#184f95", "#0d366b"]
+primaryColor = "#0051ff"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f1f6ff"
+textColor = "#1c355e"
+borderColor = "#d8e4f7"
+dataframeBorderColor = "#d8e4f7"
+chartCategoricalColors = ["#0051ff", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"]
+chartSequentialColors = ["#dde8fe", "#c9dbfe", "#b5cefe", "#9cbefe", "#83adfe", "#4b85fe", "#0051ff", "#0043de", "#0036ba", "#002693"]
 
 [theme.light.sidebar]
-backgroundColor = "#fcfcfb"
-secondaryBackgroundColor = "#f0efec"
+backgroundColor = "#f7faff"
+secondaryBackgroundColor = "#e7f0ff"
 
 [theme.dark]
-primaryColor = "#3987e5"
-backgroundColor = "#0d0d0d"
-secondaryBackgroundColor = "#1a1a19"
+primaryColor = "#4b85fe"
+backgroundColor = "#0a1a30"
+secondaryBackgroundColor = "#12243f"
 textColor = "#ffffff"
-borderColor = "#2c2c2a"
-dataframeBorderColor = "#2c2c2a"
-chartCategoricalColors = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"]
-chartSequentialColors = ["#0d366b", "#104281", "#184f95", "#1c5cab", "#256abf", "#2a78d6", "#3987e5", "#5598e7", "#86b6ef", "#b7d3f6"]
+borderColor = "#1e3554"
+dataframeBorderColor = "#1e3554"
+chartCategoricalColors = ["#4b85fe", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"]
+chartSequentialColors = ["#001775", "#002693", "#0036ba", "#0043de", "#0051ff", "#296cff", "#4b85fe", "#699bff", "#83adfe", "#9cbefe"]
 
 [theme.dark.sidebar]
-backgroundColor = "#141413"
-secondaryBackgroundColor = "#1a1a19"
+backgroundColor = "#081426"
+secondaryBackgroundColor = "#12243f"
