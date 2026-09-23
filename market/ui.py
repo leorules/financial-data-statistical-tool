@@ -58,6 +58,11 @@ def prices(tickers: tuple[str, ...], start=None, end=None) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
+def freshness(ticker: str) -> pd.DataFrame:
+    return store.query("SELECT last_date, last_run FROM ingest_log WHERE ticker = ?", [ticker])
+
+
+@st.cache_data(ttl=300)
 def snapshot(tickers: tuple[str, ...], as_of: date, total_return: bool = False) -> pd.DataFrame:
     long = store.prices([*tickers, *indicators.BENCHMARKS], as_of - timedelta(days=420), as_of)
     return indicators.snapshot(long, total_return=total_return)

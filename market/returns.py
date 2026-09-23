@@ -5,10 +5,14 @@ from market import resample
 from market.config import MIN_OBS
 
 
+PRICE_FIELDS = {"open", "high", "low", "close", "adj_close"}
+
+
 def price_matrix(long: pd.DataFrame, field: str = "adj_close") -> pd.DataFrame:
     wide = long.pivot(index="date", columns="ticker", values=field).sort_index()
     wide.columns.name = None
-    return wide
+    # Yahoo reports 0 for suspended or untraded microcaps, which would make returns infinite.
+    return wide.mask(wide <= 0) if field in PRICE_FIELDS else wide
 
 
 def to_currency(wide: pd.DataFrame, currencies: dict[str, str], audusd: pd.Series, target: str) -> pd.DataFrame:

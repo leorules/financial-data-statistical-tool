@@ -25,12 +25,18 @@ CREATE TABLE IF NOT EXISTS ingest_log(
 """
 
 
+_schema_ready: set[str] = set()  # per database file: tests point DB_PATH at a fresh one
+
+
 @contextmanager
 def connect():
     DATA.mkdir(exist_ok=True)
-    con = duckdb.connect(str(DB_PATH))
+    path = str(DB_PATH)
+    con = duckdb.connect(path)
     try:
-        con.execute(SCHEMA)
+        if path not in _schema_ready:
+            con.execute(SCHEMA)
+            _schema_ready.add(path)
         yield con
     finally:
         con.close()

@@ -1,11 +1,13 @@
 from dataclasses import replace
 
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from plotly.subplots import make_subplots
 
-from market import indicators, interpret, resample, stats, store, ui, universe
+from market import indicators, interpret, resample, stats, ui, universe
+from market.config import benchmark_for
 
 s = ui.settings()
 inst = ui.instruments()
@@ -65,13 +67,26 @@ r = view["adj_close"].pct_change(fill_method=None).dropna()
 periods = stats.periods_per_year(view.index)
 rf = ui.risk_free(s, r.index)
 risk = stats.risk.cross_section(r.to_frame(ticker), periods, rf).iloc[0]
+
+bench_ticker = benchmark_for(ticker, s.on("total_return"))
+relative = corr = None
+if bench_ticker != ticker:
+    bench_wide = ui.price_matrix([bench_ticker], s)
+    if bench_ticker in bench_wide:
+        bench_r = resample.last(bench_wide, s.freq)[bench_ticker].pct_change(fill_method=None)
+        both = pd.concat([r, bench_r], axis=1, keys=["a", "b"]).dropna()
+        if len(both) > 20:
+            relative = stats.risk.metrics(both.a, both.b, periods, rf)
+            corr = both.a.corr(both.b)
 k = st.columns(4)
-k[0].metric("Last close", f"{view.close.iloc[-1]:,.2f}", f"{view.close.pct_change().iloc[-1]:+.2%}", border=True)
+k[0].metric("Last close", f"{view.close.iloc[-1]:,.2f}", f"{view.close.pct_change().iloc[-1]:+.2%}", border=True,
+            help=f"Change over the last {PERIOD}")
 k[1].metric("Period return", f"{view.adj_close.iloc[-1] / view.adj_close.iloc[0] - 1:+.2%}", border=True)
 k[2].metric("Annual return", f"{(view.adj_close.iloc[-1] / view.adj_close.iloc[0]) ** (periods / max(len(r), 1)) - 1:+.2%}",
             border=True, help="Compound annual growth rate over the selected range")
-k[3].metric("RSI (14)", f"{indicators.rsi(bars.close).iloc[-1]:.0f}", border=True,
-            help="Above 70 is often read as overbought, below 30 as oversold.")
+k[3].metric(f"RSI (14 {PERIOD}s)", f"{indicators.rsi(bars.close).iloc[-1]:.0f}", border=True,
+            help=f"Measured over 14 {PERIOD}s, following the sidebar interval. Above 70 is often read as "
+                 "overbought, below 30 as oversold.")
 
 with st.container(border=True):
     st.markdown(f"**:material/shield: Risk** · {len(r)} {EVERY} returns, {view.index[0]:%d %b %Y} – {view.index[-1]:%d %b %Y}")
@@ -83,6 +98,15 @@ with st.container(border=True):
     for line in (tiles[:4], tiles[4:]):
         for col, (key, name, help_text) in zip(st.columns(4), line):
             value = f"{risk[key]:.2f}" if key in ("sharpe", "sortino") else f"{risk[key]:.2%}"
+            col.metric(name, value, help=help_text)
+    if relative is not None:
+        st.markdown(f"**Versus {ui.label(bench_ticker)}**")
+        for col, (name, value, help_text) in zip(st.columns(4), [
+            ("Beta", f"{relative.beta:.2f}", "Sensitivity to a 1% benchmark move"),
+            ("Correlation", f"{corr:.2f}", "How closely the two move together"),
+            ("Tracking error", f"{relative.tracking_error:.2%}", "Annualised volatility of the return difference"),
+            ("Information ratio", f"{relative.information_ratio:.2f}", "Excess return per unit of tracking error"),
+        ]):
             col.metric(name, value, help=help_text)
 
 fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.72, 0.28], vertical_spacing=0.04,
@@ -101,6 +125,9 @@ fig.update_yaxes(tickformat=".0%", rangemode="tozero", row=2, col=1)
 fig.update_layout(xaxis_rangeslider_visible=False, title=ui.label(ticker))
 ui.shade_stress(fig, stress_periods, s, subplots=True)
 with st.container(border=True):
+    if st.checkbox("Log price scale", key="overview_log",
+                   help="Equal percentage moves take equal vertical space, so early years stay readable"):
+        fig.update_yaxes(type="log", row=1, col=1)
     ui.chart(fig, height=640)
 
 row = inst.set_index("ticker", drop=False).loc[ticker]
@@ -115,7 +142,7 @@ with st.container(border=True):
     link = f" · [Website]({about['website']})" if about.get("website") else ""
     st.caption(f"Source: {about['source']}{link}")
 
-log = store.query("SELECT last_date, last_run FROM ingest_log WHERE ticker = ?", [ticker])
+log = ui.freshness(ticker)
 if len(log):
     st.caption(f"Data to {log.last_date[0]:%d %b %Y} · refreshed {log.last_run[0]:%d %b %Y %H:%M} · "
                f"native currency · {ui.FREQS[s.freq].lower()} bars")
@@ -126,7 +153,9 @@ with st.container(border=True):
                      "each instrument's own trading days.")
     if st.toggle("Show table", value=len(pool) <= 100, key=f"risk_table_{asset_class}_{region}_{kind}"):
         wide = ui.price_matrix(pool.ticker.tolist(), replace(s, currency="native"))
-        member_returns = resample.last(wide, s.freq).apply(lambda col: col.dropna().pct_change())
+        bars_wide = resample.last(wide, s.freq)
+        # Each instrument uses its own trading days: carry the last price over gaps, then blank the gap rows.
+        member_returns = bars_wide.ffill().pct_change(fill_method=None).where(bars_wide.notna())
         table = stats.risk.cross_section(member_returns, periods, ui.risk_free(s, member_returns.index))
         table = pool.set_index("ticker")[["name", "exchange", "type"]].join(table, how="inner")
         usable = (table.observations >= 20) & (table["std"] > 0)
@@ -141,5 +170,9 @@ with st.container(border=True):
                                                   format="%.2f" if key in ("sharpe", "sortino") else "percent")
                for key, (name, help_text) in RISK_COLUMNS.items()},
         })
+        if ticker in table.index:
+            rank = int(table.index.get_loc(ticker)) + 1  # the table is sorted most volatile first
+            st.caption(f"**{ticker}** ranks {rank} of {len(table)} by volatility "
+                       f"({(rank - 1) / len(table):.0%} of this selection is more volatile).")
         ui.download(table, f"risk_{asset_class.lower().replace(' ', '_')}")
         ui.explain(interpret.risk_table(table, asset_class, PERIOD))
