@@ -12,6 +12,7 @@ RULE_COLUMNS = ["left", "op", "right", "right2"]
 DEFAULT_RULES = [{"left": "close", "op": ">", "right": "sma_200", "right2": None}]
 
 ui.header("Screener", "Filter by asset class, region, sector and technical rules, then send the matches to your basket.")
+ui.adjustments_caption(s, "total_return")
 
 # Presets load before the filter widgets render so they can set widget state.
 saved = presets.load_all()

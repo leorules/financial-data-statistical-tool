@@ -15,6 +15,7 @@ COLUMNS = ["name", "ticker", "trend", "close", *PERCENT, "asset_class", "exchang
 
 ui.header("Asset Classes", "Browse equities, bonds, rates, commodities, currencies and crypto by region, "
                            "and compare how they have performed.")
+ui.adjustments_caption(s, "total_return")
 with st.container(border=True):
     selected, search = ui.instrument_filters("ac", keys=("asset_class", "exchange", "type"),
                                              defaults={"asset_class": ["Commodities"]})

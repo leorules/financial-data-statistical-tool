@@ -12,6 +12,7 @@ tickers = inst.ticker.tolist()
 
 ui.header("Portfolio", "Your holdings: value, contribution to return, risk decomposition and behaviour in past "
                        "stress periods.")
+ui.adjustments_caption(s, "live_cash")
 
 saved = portfolio.names()
 with st.container(border=True):
@@ -112,6 +113,8 @@ with right.container(border=True):
 risk = stats.risk.metrics(portfolio_returns, bench_returns, periods, ui.risk_free(s, portfolio_returns.index))
 with st.container(border=True):
     st.markdown(f"**:material/shield: Portfolio risk** · {len(portfolio_returns)} periods vs {benchmark}")
+    if s.on("live_cash"):
+        st.caption(ui.cash_label(s, portfolio_returns.index))
     tiles = [("Volatility", f"{risk.ann_vol:.1%}"), ("VaR 95%", f"{portfolio_returns.quantile(0.05):.2%}"),
              ("Max drawdown", f"{risk.max_drawdown:.1%}"), ("Sharpe", f"{risk.sharpe:.2f}"),
              ("Beta", f"{risk.get('beta', np.nan):.2f}"), ("Tracking error", f"{risk.get('tracking_error', np.nan):.1%}"),

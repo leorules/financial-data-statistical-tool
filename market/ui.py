@@ -119,12 +119,18 @@ def _adjustments(qp) -> set[str]:
     ss = st.session_state
     for key in adjust.ADJUSTMENTS:
         ss.setdefault(f"adj_{key}", key in qp.get("adjust", "").split(","))
+    ss.setdefault("adj_open", False)
     on = {key for key in adjust.ADJUSTMENTS if ss[f"adj_{key}"]}
-    with st.expander(f"Adjustments ({len(on)} on)" if on else "Adjustments"):
+    # Ticking a box reruns the script, which would otherwise collapse the panel again.
+    with st.expander(f"Adjustments ({len(on)} on)" if on else "Adjustments", expanded=ss.adj_open):
         st.caption("Off by default: results use the data exactly as it is.")
         for key, (name, why) in adjust.ADJUSTMENTS.items():
-            st.checkbox(name, key=f"adj_{key}", help=why)
+            st.checkbox(name, key=f"adj_{key}", help=why, on_change=_keep_panel_open)
     return {key for key in adjust.ADJUSTMENTS if ss[f"adj_{key}"]}
+
+
+def _keep_panel_open() -> None:
+    st.session_state.adj_open = True
 
 
 def adjustments_caption(s: Settings, *keys: str) -> None:
