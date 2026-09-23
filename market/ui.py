@@ -209,20 +209,40 @@ def subject_picker() -> tuple[list[str], dict | None]:
     if mode == "Tickers":
         return st.multiselect("Tickers", inst.ticker, default=list(s.basket), format_func=label), None
 
-    available = [c for c in universe.ASSET_CLASSES if c in set(benchmarks.TABLE.asset_class)]
+    basis = benchmark_basis()
+    available = [c for c in universe.ASSET_CLASSES if c in benchmarks.classes(basis)]
     c1, c2 = st.columns(2)
-    classes = c1.multiselect("Asset classes", available, default=BENCHMARK_DEFAULT)
-    regions = c2.multiselect("Regions", benchmarks.REGIONS, placeholder="Headline benchmark for each class")
-    chosen = benchmarks.select(classes, regions)
+    classes = c1.multiselect("Asset classes", available,
+                             default=[c for c in BENCHMARK_DEFAULT if c in available] or available[:1])
+    regions = c2.multiselect("Regions", benchmarks.REGIONS[basis], placeholder="Headline benchmark for each class")
+    chosen = benchmark_table(benchmarks.select(classes, regions, basis), inst)
+    return chosen.label.tolist(), dict(zip(chosen.label, chosen.ticker))
+
+
+def benchmark_basis(container=None) -> str:
+    """Which benchmark category represents each asset class."""
+    return (container or st).segmented_control(
+        "Benchmarks", benchmarks.BASES, key="bench_basis", default=benchmarks.BASES[0], required=True,
+        help="Standard: the index most widely quoted for each asset class. "
+             "APRA: the indices prescribed for the Australian superannuation performance test.")
+
+
+def benchmark_table(chosen: pd.DataFrame, inst: pd.DataFrame) -> pd.DataFrame:
+    """Show which series stands in for each benchmark, and drop the ones with no data behind them."""
+    missing = chosen[chosen.ticker.isna()]
+    chosen = chosen.dropna(subset=["ticker"])
     loaded = chosen.ticker.isin(set(inst.ticker))
     if not loaded.all():
         st.caption(f"Not downloaded yet: {', '.join(chosen.ticker[~loaded])}. Refresh the built-in lists in Data Manager.")
     chosen = chosen[loaded]
     with st.expander(f"Benchmarks used ({len(chosen)})"):
-        st.dataframe(chosen[["label", "benchmark", "provider", "ticker", "series", "note"]], hide_index=True,
-                     column_config={"label": "Analysed as", "series": st.column_config.TextColumn(
+        st.dataframe(chosen[["label", "benchmark", "provider", "ticker", "code", "series", "note"]], hide_index=True,
+                     column_config={"label": "Analysed as", "code": "APRA code", "series": st.column_config.TextColumn(
                          "Series", help="index: the benchmark itself · tracker: an ETF/ETN tracking it · proxy: closest stand-in")})
-    return chosen.label.tolist(), dict(zip(chosen.label, chosen.ticker))
+        if len(missing):
+            st.caption(f"No public series for {len(missing)}: "
+                       + "; ".join(f"**{r.label}** — {r.note}" for _, r in missing.iterrows()))
+    return chosen
 
 
 SECTIONS = (("findings", ":material/query_stats: What the numbers show"),

@@ -5,9 +5,10 @@ from market import benchmarks, universe
 
 def test_every_benchmark_is_a_built_in_instrument():
     built_in = pd.concat(universe.BUILT_IN.values()).set_index("ticker")
-    assert benchmarks.TABLE.ticker.isin(built_in.index).all()
+    priced = benchmarks.TABLE.dropna(subset=["ticker"])
+    assert priced.ticker.isin(built_in.index).all()
     assert benchmarks.TABLE.asset_class.isin(universe.ASSET_CLASSES).all()
-    assert (benchmarks.TABLE.groupby("asset_class").headline.sum() == 1).all()
+    assert (benchmarks.TABLE.groupby(["basis", "asset_class"]).headline.sum() == 1).all()
 
 
 def test_select_headline_and_regional():
@@ -17,3 +18,27 @@ def test_select_headline_and_regional():
     regional = benchmarks.select(["Equities", "Cash"], ["Australia"])
     assert regional.label.tolist() == ["Equities · Australia", "Cash · Australia"]
     assert regional.ticker.tolist() == ["^AXJO", "BILL.AX"]
+
+
+def test_the_two_benchmark_categories_are_separate_and_complete():
+    assert benchmarks.BASES == ["Standard", "APRA"]
+    standard, apra = (benchmarks.TABLE[benchmarks.TABLE.basis == b] for b in benchmarks.BASES)
+    assert len(apra) == 26, "APRA prescribes 26 covered asset classes"
+    assert set(standard.region) <= set(benchmarks.REGIONS["Standard"])
+    assert set(apra.region) <= set(benchmarks.REGIONS["APRA"])
+    # Every prescribed row either has a proxy with a ticker, or is explicitly unavailable with a reason.
+    assert ((apra.series == "unavailable") == apra.ticker.isna()).all()
+    assert apra[apra.series == "unavailable"].note.str.len().gt(0).all()
+
+
+def test_selecting_by_basis_returns_only_that_category():
+    for basis in benchmarks.BASES:
+        rows = benchmarks.select(benchmarks.classes(basis), benchmarks.REGIONS[basis], basis)
+        assert (rows.basis == basis).all() and len(rows)
+        assert rows.label.is_unique
+
+
+def test_apra_codes_are_recorded_for_published_indices():
+    apra = benchmarks.TABLE[benchmarks.TABLE.basis == "APRA"]
+    assert apra.set_index("benchmark").code.get("S&P/ASX 300 Total Return") == "ASA52"
+    assert apra[apra.code.notna()].shape[0] == 19, "four unlisted indices and three composites have no code"

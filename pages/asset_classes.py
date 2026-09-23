@@ -33,15 +33,20 @@ recent = ui.prices(tuple(pool.ticker), s.end - timedelta(days=183), s.end)
 snap["trend"] = snap.ticker.map(recent.groupby("ticker")["close"].apply(list))
 metric = HORIZONS[horizon]
 
-bench = benchmarks.select(selected["asset_class"] or benchmarks.TABLE.asset_class.unique().tolist(), benchmarks.REGIONS)
-bench = bench[bench.ticker.isin(set(inst.ticker))]
-bench = bench.merge(ui.snapshot(tuple(bench.ticker), s.end, s.on("total_return")), on="ticker")
+with st.container(border=True):
+    st.markdown("**Asset-class benchmarks**", help="The index for each asset class and region, or the series that "
+                                                  "stands in for it when the index itself is not available.")
+    basis = ui.benchmark_basis()
+    wanted = [c for c in selected["asset_class"] if c in benchmarks.classes(basis)]
+    if selected["asset_class"] and not wanted:
+        st.caption(f"The {basis} category has no benchmark for that asset class, so every {basis} class is shown.")
+    bench = benchmarks.select(wanted or benchmarks.classes(basis), benchmarks.REGIONS[basis], basis)
+    bench = ui.benchmark_table(bench, inst)
+    bench = bench.merge(ui.snapshot(tuple(bench.ticker), s.end, s.on("total_return")), on="ticker")
 if len(bench):
     with st.container(border=True):
-        st.markdown("**Asset-class benchmarks**", help="The standard index for each asset class and region, or the ETF "
-                                                        "that tracks it when the index itself is not available.")
-        st.dataframe(bench[["asset_class", "region", "benchmark", "ticker", "series", *HORIZONS.values(), "vol_1y",
-                            "max_dd_1y", "note"]], hide_index=True,
+        st.dataframe(bench[["asset_class", "region", "variant", "benchmark", "ticker", "code", "series",
+                            *HORIZONS.values(), "vol_1y", "max_dd_1y", "note"]], hide_index=True,
                      column_config={c: st.column_config.NumberColumn(label, format="percent")
                                     for c, label in PERCENT.items()} | {"asset_class": "Asset class", "region": "Region",
                                                                          "benchmark": st.column_config.TextColumn("Benchmark", width="medium")})
