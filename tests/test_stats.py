@@ -142,3 +142,31 @@ def test_blend_compounds_weighted_component_returns():
     # Weights are normalised, and the blend sits between its components on risk.
     assert np.allclose(returns.blend(wide, {"A": 1, "B": 3}), blended)
     assert blended.pct_change().std() < wide.A.pct_change().std()
+
+
+def test_matrix_pvalues_match_a_test_per_pair():
+    rng = np.random.default_rng(9)
+    df = pd.DataFrame(rng.normal(0, 0.01, (400, 6)), columns=list("ABCDEF"))
+    df["B"] += df["A"]                 # a genuinely correlated pair
+    df.iloc[:80, 2] = np.nan           # a late-starting series
+    df.iloc[200:210, 4] = np.nan       # a gap
+    for method in ("pearson", "spearman"):
+        fast = stats.correlation.pvalues(df, method)
+        slow = stats.correlation._per_pair(df, method)
+        assert np.allclose(fast.to_numpy(), slow.to_numpy(), atol=1e-10), method
+    assert (stats.correlation.pvalues(df).loc["A", "B"] < 0.01)
+
+
+def test_rolling_average_correlation_tracks_the_matrix_average():
+    rng = np.random.default_rng(5)
+    factor = rng.normal(0, 0.01, 600)
+    r = pd.DataFrame({f"T{i}": 0.6 * factor + rng.normal(0, 0.01, 600) for i in range(8)},
+                     index=pd.bdate_range("2022-01-01", periods=600))
+    window = 120
+    fast = stats.correlation.rolling_average(r, window)
+    brute = pd.Series({r.index[i - 1]: r.iloc[i - window:i].corr().to_numpy()[
+        np.triu_indices(r.shape[1], 1)].mean() for i in range(window, len(r) + 1)})
+    common = fast.index.intersection(brute.index)
+    assert len(common) > 400
+    assert (fast[common] - brute[common]).abs().mean() < 0.01
+    assert fast.between(-1, 1).all()

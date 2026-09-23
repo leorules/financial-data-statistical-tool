@@ -16,15 +16,51 @@ def matrix(df: pd.DataFrame, method: str = "pearson") -> pd.DataFrame:
 
 
 def pvalues(df: pd.DataFrame, method: str = "pearson", adjust: bool = False) -> pd.DataFrame:
-    """Pairwise p-values; `adjust` applies a Benjamini-Hochberg false-discovery correction across
-    every pair tested, so chance findings in a large matrix are not read as real."""
+    """Pairwise p-values for H0: no correlation.
+
+    Pearson uses its closed form and Spearman scipy's matrix routine. Both are exact, and both avoid
+    running a separate test per pair, which grows with the square of the basket. `adjust` applies a
+    Benjamini-Hochberg false-discovery correction across every pair tested, so chance findings in a
+    large matrix are not read as real.
+    """
+    if method == "pearson":
+        out = _from_t(df.corr(), _overlap(df))
+    elif method == "spearman" and df.shape[1] > 2:
+        out = _square(st.spearmanr(df.to_numpy(), nan_policy="omit").pvalue, df.columns)
+    else:
+        out = _per_pair(df, method)
+    return correct(out) if adjust else out
+
+
+def _overlap(df: pd.DataFrame) -> pd.DataFrame:
+    """Observations each pair of columns shares."""
+    present = df.notna().astype(int)
+    return present.T @ present
+
+
+def _from_t(corr: pd.DataFrame, n: pd.DataFrame) -> pd.DataFrame:
+    """Pearson p-values from the correlation matrix: t = r * sqrt((n - 2) / (1 - r^2))."""
+    dof = (n - 2).clip(lower=1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t = corr * np.sqrt(dof / (1 - corr ** 2))
+    return _square(2 * st.t.sf(np.abs(t.to_numpy()), dof.to_numpy()), corr.columns)
+
+
+def _square(values, columns) -> pd.DataFrame:
+    p = np.array(values, dtype=float).reshape(len(columns), len(columns))
+    np.fill_diagonal(p, 0.0)
+    return pd.DataFrame(p, index=columns, columns=columns)
+
+
+def _per_pair(df: pd.DataFrame, method: str) -> pd.DataFrame:
+    """One test per pair, for Kendall and for baskets too small for the matrix routines."""
     cols = df.columns
     out = pd.DataFrame(0.0, index=cols, columns=cols)
     for i, a in enumerate(cols):
         for b in cols[i + 1:]:
             ab = df[[a, b]].dropna()
             out.loc[a, b] = out.loc[b, a] = TESTS[method](ab[a], ab[b]).pvalue if len(ab) > 2 else np.nan
-    return correct(out) if adjust else out
+    return out
 
 
 def correct(p: pd.DataFrame) -> pd.DataFrame:
@@ -66,6 +102,20 @@ def pairs(corr: pd.DataFrame) -> pd.DataFrame:
     upper = corr.where(np.triu(np.ones(corr.shape, dtype=bool), k=1)).stack().dropna()
     return (upper.rename("corr").rename_axis(["a", "b"]).reset_index()
             .sort_values("corr", ascending=False, ignore_index=True))
+
+
+def rolling_average(r: pd.DataFrame, window: int) -> pd.Series:
+    """Average pairwise correlation through time, which is when diversification holds or fails.
+
+    For a common average correlation p, Var(sum x) = sum(var) + p * ((sum sd)^2 - sum(var)). Solving
+    for p needs only a rolling standard deviation per column and one for the basket, so no
+    correlation matrix is formed per window.
+    """
+    sd = r.rolling(window).std()
+    own = (sd ** 2).sum(axis=1)
+    spread = sd.sum(axis=1) ** 2 - own
+    basket = r.sum(axis=1).rolling(window).std() ** 2
+    return ((basket - own) / spread).replace([np.inf, -np.inf], np.nan).dropna().clip(-1, 1)
 
 
 def lead_lag(a: pd.Series, b: pd.Series, max_lag: int = 10) -> pd.DataFrame:

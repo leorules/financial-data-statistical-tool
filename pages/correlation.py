@@ -48,8 +48,8 @@ raw_p = corr_mod.pvalues(r, "pearson" if method in ("partial", "covariance") els
 pvals = corr_mod.correct(raw_p) if s.on("fdr") else raw_p
 explained, loadings = mv.pca(r)
 pairs = corr_mod.pairs(corr)
-pairs_tab, pvalue_tab, pair_tab, pca_tab, port_tab = st.tabs(
-    ["Top pairs", "Significance", "Pair analysis", "PCA", "Portfolios"])
+pairs_tab, time_tab, pvalue_tab, pair_tab, pca_tab, port_tab = st.tabs(
+    ["Top pairs", "Through time", "Significance", "Pair analysis", "PCA", "Portfolios"])
 
 with pairs_tab:
     left, right = st.columns(2)
@@ -57,6 +57,29 @@ with pairs_tab:
     left.dataframe(pairs.head(10), hide_index=True, column_config={"corr": ui.NUM})
     right.markdown("**Least correlated**")
     right.dataframe(pairs.tail(10).iloc[::-1], hide_index=True, column_config={"corr": ui.NUM})
+
+with time_tab:
+    longest = max(20, min(252, len(r) // 2))
+    window = st.slider("Window", 20, longest, min(126 if s.freq == "D" else 26, longest),
+                       help="Average correlation across every pair in the basket, recalculated over this "
+                            "trailing window")
+    average = corr_mod.rolling_average(r, window)
+    if len(average) < 2:
+        st.info("Not enough observations in this window to track correlation through time.")
+    else:
+        whole = corr.to_numpy()[np.triu_indices(len(corr), 1)].mean()
+        fig = px.line(average.rename("Average pairwise correlation"), labels={"value": "", "date": ""},
+                      title="Average pairwise correlation")
+        fig.add_hline(y=whole, line_dash="dot", line_color=ui.MUTED,
+                      annotation_text=f"full period {whole:.2f}", annotation_position="top right")
+        ui.chart(fig.update_yaxes(range=[min(-0.1, average.min() - 0.05), 1]), height=340)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Latest", f"{average.iloc[-1]:.2f}", f"{average.iloc[-1] - whole:+.2f} vs full period")
+        c2.metric("Highest", f"{average.max():.2f}", help=f"Reached {average.idxmax():%d %b %Y}")
+        c3.metric("Lowest", f"{average.min():.2f}", help=f"Reached {average.idxmin():%d %b %Y}")
+        st.caption("Correlations rise together in a sell-off, so diversification is weakest exactly when it is "
+                   "most needed. A line well above its full-period average means the basket is currently "
+                   "behaving as one position.")
 
 with pvalue_tab:
     st.caption("P-values for H0: no correlation. Darker cells (p < 0.05) are statistically significant.")
