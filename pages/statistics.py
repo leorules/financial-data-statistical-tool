@@ -4,7 +4,9 @@ import plotly.express as px
 import streamlit as st
 from plotly.subplots import make_subplots
 
-from market import interpret, stats, ui
+from market import factors, interpret, stats, ui
+from market import returns as rets
+from market import resample
 from market.config import benchmark_for
 
 s = ui.settings()
@@ -12,7 +14,8 @@ inst = ui.instruments()
 ui.require(inst)
 SECTIONS = {"Descriptive": ":material/table_chart:", "Rolling": ":material/show_chart:",
             "Distribution": ":material/bar_chart:", "Hypothesis": ":material/science:", "Risk": ":material/shield:",
-            "Regression": ":material/trending_up:", "Time Series": ":material/timeline:",
+            "Regression": ":material/trending_up:", "Factors": ":material/scatter_plot:",
+            "Time Series": ":material/timeline:",
             "Seasonality": ":material/calendar_month:"}
 SEASON_PERIOD = {"D": 21, "W": 52, "M": 12}
 NO_AXIS = {"value": "", "date": "", "index": ""}
@@ -228,6 +231,44 @@ elif section == "Regression":
         line(pd.DataFrame({"Price": prices[focus], "Trend": line_fit}), log_y=True)
     reading = interpret.regression(coefficients, diagnostics, trend, y_name, series == "Returns", s.freq,
                                    prices[focus], line_fit)
+
+elif section == "Factors":
+    rf = returns[focus]
+    with card():
+        picked = st.multiselect("Factors", list(factors.FACTORS), default=["Market (AU)", "Market (US)", "Duration"],
+                                help="Each is a listed proxy; spreads isolate the factor from market direction")
+    ui.require(picked, "Pick at least one factor.")
+    factor_prices = ui.price_matrix(factors.legs(picked), s)
+    if s.on("align_closes") and s.freq == "D":
+        factor_prices = rets.align_closes(factor_prices, ui.regions())
+    f = factors.returns(resample.last(factor_prices, s.freq), picked)
+    missing = [n for n in picked if n not in f]
+    if missing:
+        st.caption(f"Not loaded, so skipped: {', '.join(missing)}. Refresh the built-in lists in Data Manager.")
+    ui.require(f.columns, "None of the chosen factors have data. Refresh the built-in lists in Data Manager.")
+    pair = pd.concat([rf.rename(focus), f], axis=1).dropna()
+    if len(pair) < 30:
+        st.info(f"Only {len(pair)} overlapping observations; a factor model needs more than this.")
+    else:
+        res = stats.regression.fit(pair[focus], pair[f.columns], hac=s.on("hac"))
+        periods = stats.periods_per_year(pair.index)
+        table = factors.exposures(res, periods)
+        left, right = st.columns([3, 2])
+        with left.container(border=True):
+            st.markdown(f"**What drives {focus}**", help="Beta is the return per 1% factor move; alpha is what "
+                                                        "none of the factors explain.")
+            st.dataframe(table, column_config={c: ui.NUM for c in ("beta", "t", "p_value")})
+            st.caption(f"R² {res.rsquared:.2f} — the share of {focus}'s variation these factors account for. "
+                       f"Alpha {table.loc['Alpha (annual)', 'beta']:+.2%} a year "
+                       f"(p = {table.loc['Alpha (annual)', 'p_value']:.3f}).")
+        with right.container(border=True):
+            betas = table.drop("Alpha (annual)")
+            fig = px.bar(betas.sort_values("beta"), x="beta", y=betas.sort_values("beta").index,
+                         orientation="h", labels={"beta": "", "y": ""}, text_auto=".2f")
+            ui.chart(fig.update_layout(showlegend=False), height=max(240, 60 * len(betas)))
+        with card("What each factor is"):
+            st.dataframe(pd.DataFrame({"factor": list(f.columns),
+                                       "built from": [factors.describe(n) for n in f.columns]}), hide_index=True)
 
 elif section == "Time Series" and len(x) < 40:
     st.info(f"Only {len(x)} observations in this window. Stationarity, autocorrelation, cointegration and Granger "

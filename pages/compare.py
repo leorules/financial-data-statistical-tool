@@ -1,3 +1,4 @@
+import pandas as pd
 import plotly.express as px
 import streamlit as st
 
@@ -60,7 +61,16 @@ with st.container(border=True):
                     "sharpe": st.column_config.NumberColumn("sharpe", help="Arithmetic mean excess return over "
                                                             "cash, divided by volatility; ann_return beside it "
                                                             "compounds geometrically, so the two use different means")})
-    ui.download(table, "compare")
+    c1, c2 = st.columns([1, 4])
+    with c1:
+        ui.download(table, "compare")
+    with c2:
+        ui.report(f"Compare · {', '.join(prices.columns[:6])}{'…' if len(prices.columns) > 6 else ''}", s, [
+            ("Risk and return", table[cols]),
+            ("Correlation of returns", r.corr().round(3)),
+            ("Drawdown", pd.DataFrame({"max drawdown": table.max_drawdown, "periods peak to recovery": table.dd_length})),
+        ], "compare_tearsheet", notes=[f"Measured over {len(r)} {ui.FREQS[s.freq].lower()} returns from "
+                                       f"{r.index[0]:%d %b %Y} to {r.index[-1]:%d %b %Y}."])
 
 with st.container(border=True):
     fig = px.line(stats.risk.drawdown(r), title="Drawdown from peak", labels={"value": "", "date": ""})

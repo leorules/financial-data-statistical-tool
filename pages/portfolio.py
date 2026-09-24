@@ -113,9 +113,19 @@ with st.container(border=True):
         "profit": st.column_config.NumberColumn("Unrealised P&L", format="dollar"),
         "return": st.column_config.NumberColumn("Return on cost", format="percent"),
         "weight": st.column_config.NumberColumn("Weight", format="percent")})
-    d1, d2 = st.columns([1, 3])
+    d1, d2, d3 = st.columns([1, 1, 3])
     with d1:
         ui.download(table, f"portfolio_{name}")
+    with d2:
+        ui.report(f"Portfolio · {name}", s, [
+            ("Positions", table),
+            ("Concentration", pd.DataFrame([portfolio.concentration(table.weight)])),
+            ("Contribution to return", portfolio.contributions(values, cash)[["start_weight", "return", "contribution"]]),
+            ("Through past stress periods", portfolio.stress_history(
+                ui.price_matrix(held.ticker.tolist(), ui.Settings(None, s.end, s.freq, s.kind, s.currency, s.basket)),
+                table.weight)),
+        ], f"portfolio_{name}", notes=[f"Market value ${total.iloc[-1]:,.0f} including ${cash:,.0f} cash, "
+                                       f"benchmarked against {benchmark}."])
     if d2.button("Use as basket", icon=":material/shopping_basket:",
                  help="Send these holdings to the sidebar basket for Compare, Correlation and Statistics"):
         ui.set_basket(table.index.tolist())

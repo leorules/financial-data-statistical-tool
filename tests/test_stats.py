@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 from scipy import stats as st
 
-from market import returns, stats
+from market import factors, returns, stats, tearsheet
 
 
 @pytest.fixture
@@ -199,3 +199,27 @@ def test_align_closes_recovers_the_cross_market_relationship():
     # Local-only baskets are untouched.
     only_local = returns.align_closes(prices[["LOCAL"]], where)
     assert only_local.equals(prices[["LOCAL"]])
+
+
+def test_factor_spreads_isolate_the_factor_from_market_direction():
+    idx = pd.bdate_range("2022-01-01", periods=300)
+    rng = np.random.default_rng(17)
+    market = rng.normal(0, 0.01, 300)
+    prices = pd.DataFrame({t: 100 * np.cumprod(1 + market + rng.normal(0, 0.002, 300))
+                           for t in ["SPY", "IWM", "TLT", "SHY"]}, index=idx)
+    built = factors.returns(prices, ["Market (US)", "Size", "Duration"])
+    assert list(built.columns) == ["Market (US)", "Size", "Duration"]
+    # A spread strips out the common market move that both legs share.
+    assert built["Size"].std() < built["Market (US)"].std()
+    assert factors.legs(["Size", "Duration"]) == ["IWM", "SPY", "TLT", "SHY"]
+    # Factors whose legs are not loaded are skipped rather than erroring.
+    assert "Gold" not in factors.returns(prices, ["Market (US)", "Gold"]).columns
+
+
+def test_tearsheet_records_how_the_numbers_were_made():
+    table = pd.DataFrame({"ann_return": [0.08]}, index=["^AXJO"])
+    html = tearsheet.build("Report", {"Period": "2021 to 2026", "Adjustments": "Live cash rate"},
+                           [("Risk", table), ("Nothing", pd.DataFrame())], notes=["1,264 returns."])
+    assert "Live cash rate" in html and "1,264 returns." in html
+    assert html.count("<h2>") == 1, "empty sections are left out"
+    assert "^AXJO" in html and "Generated" in html

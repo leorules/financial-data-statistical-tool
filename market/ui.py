@@ -5,7 +5,7 @@ from datetime import date, timedelta
 import pandas as pd
 import streamlit as st
 
-from market import adjust, benchmarks, cash, descriptions, filters, indicators, resample, store, stress, universe
+from market import adjust, benchmarks, cash, descriptions, filters, indicators, resample, store, stress, tearsheet, universe
 from market.config import MIN_OBS, RISK_FREE
 from market import returns as rets
 
@@ -452,6 +452,13 @@ def percent(df: pd.DataFrame, cols) -> dict:
 
 def download(df: pd.DataFrame, name: str) -> None:
     st.download_button("Download CSV", df.to_csv().encode(), f"{name}.csv", "text/csv", icon=":material/download:")
+
+
+def report(title: str, s: Settings, sections: list, name: str, notes: list[str] | None = None) -> None:
+    """One HTML file holding this page's tables, with the settings that produced them."""
+    html = tearsheet.build(title, tearsheet.window(s, adjust.active(s.adjust)), sections, notes)
+    st.download_button("Download tearsheet", html.encode(), f"{name}.html", "text/html",
+                       icon=":material/description:", help="A single HTML report; open it in a browser or print to PDF")
 
 
 def conclusions(df: pd.DataFrame) -> None:
