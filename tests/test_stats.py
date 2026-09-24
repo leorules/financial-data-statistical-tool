@@ -170,3 +170,14 @@ def test_rolling_average_correlation_tracks_the_matrix_average():
     assert len(common) > 400
     assert (fast[common] - brute[common]).abs().mean() < 0.01
     assert fast.between(-1, 1).all()
+
+
+def test_non_stationary_flags_levels_but_not_returns():
+    rng = np.random.default_rng(11)
+    idx = pd.bdate_range("2020-01-01", periods=900)
+    walk = pd.Series(100 * np.cumprod(1 + rng.normal(0, 0.01, 900)), index=idx)
+    frame = pd.DataFrame({"level_a": walk, "level_b": 100 * np.cumprod(1 + rng.normal(0, 0.01, 900)),
+                          "returns": walk.pct_change().fillna(0)})
+    flagged = stats.timeseries.non_stationary(frame)
+    assert set(flagged) == {"level_a", "level_b"}, "price levels drift; returns do not"
+    assert stats.timeseries.non_stationary(frame["returns"]) == []

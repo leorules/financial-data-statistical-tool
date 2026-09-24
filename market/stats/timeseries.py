@@ -27,6 +27,12 @@ def stationarity(s: pd.Series) -> pd.DataFrame:
     return pd.DataFrame([adf(s), kpss_test(s)])
 
 
+def non_stationary(frame, alpha: float = 0.05) -> list[str]:
+    """Columns the ADF test cannot call stationary, which is where regressing levels goes wrong."""
+    frame = frame.to_frame() if isinstance(frame, pd.Series) else frame
+    return [c for c in frame.columns if len(frame[c].dropna()) > 20 and adf(frame[c])["p_value"] > alpha]
+
+
 def autocorr(s: pd.Series, nlags: int = 20) -> pd.DataFrame:
     s = s.dropna()
     return pd.DataFrame({"lag": range(nlags + 1), "acf": acf(s, nlags=nlags), "pacf": pacf(s, nlags=nlags),

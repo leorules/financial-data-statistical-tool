@@ -138,14 +138,20 @@ elif section == "Distribution":
         reading = interpret.distribution(stats.descriptive.describe(x), normality, fit, var, s.freq, x)
 
 elif section == "Hypothesis":
-    mean_test, comparison = stats.hypothesis.mean_zero(x).to_frame().T, stats.hypothesis.compare(x, data[other])
+    paired = other != focus
+    mean_test = stats.hypothesis.mean_zero(x).to_frame().T
+    comparison = stats.hypothesis.compare(x, data[other]) if paired else None
     with card(f"Is the mean of {focus} different from zero?"):
         ui.conclusions(mean_test)
-    with card(f"{focus} vs {other}: same mean, variance and distribution?"):
-        ui.conclusions(comparison)
+    with card(f"{focus} vs {other}: same mean, variance and distribution?" if paired else "Comparing two series"):
+        if paired:
+            ui.conclusions(comparison)
+        else:
+            st.caption("Only one series is selected, so there is nothing to compare it against. Add a second ticker "
+                       "or asset class above.")
     with card("Bootstrap confidence interval"):
         c1, c2, c3 = st.columns(3)
-        stat = c1.selectbox("Statistic", ["mean", "Sharpe", f"correlation with {other}"])
+        stat = c1.selectbox("Statistic", ["mean", "Sharpe"] + ([f"correlation with {other}"] if paired else []))
         n = c2.select_slider("Resamples", [500, 1000, 2000, 5000], value=2000)
         level = c3.select_slider("Confidence", [0.9, 0.95, 0.99], value=0.95)
         rf = returns[focus]
@@ -161,7 +167,7 @@ elif section == "Hypothesis":
         for v in (ci.ci_low, ci.ci_high):
             fig.add_vline(x=v, line_color=ui.MUTED)
         ui.chart(fig, height=320)
-    if series == "Returns":
+    if series == "Returns" and paired:
         reading = interpret.hypothesis(mean_test.iloc[0], comparison, ci, stat, focus, other, s.freq, x, data[other])
 
 elif section == "Risk":
@@ -191,7 +197,16 @@ elif section == "Regression":
         x_names = c2.multiselect("Independent (X)", list(dict.fromkeys([bench, *loaded])), default=[bench],
                                  format_func=ui.label)
     ui.require(x_names, "Pick at least one independent variable.")
-    res = stats.regression.fit(data[y_name], ui.series_matrix(x_names, s, series), hac=s.on("hac"))
+    regressors = ui.series_matrix(x_names, s, series)
+    involved = pd.concat([data[[y_name]], regressors], axis=1)
+    drifting = stats.timeseries.non_stationary(involved.loc[:, ~involved.columns.duplicated()])
+    if len(drifting) > 1:
+        st.warning(f"{', '.join(drifting)} each fail the ADF test for stationarity. Regressing one trending series "
+                   "on another finds a relationship where none exists — on independent random walks this reports a "
+                   "significant slope about 90% of the time, and robust standard errors barely help. Use **Returns** "
+                   "above, or the cointegration test in **Time Series**, to ask whether they really move together.",
+                   icon=":material/warning:")
+    res = stats.regression.fit(data[y_name], regressors, hac=s.on("hac"))
     coefficients, diagnostics = stats.regression.coefficients(res), stats.regression.diagnostics(res)
     left, right = st.columns(2)
     with left.container(border=True):
@@ -242,8 +257,8 @@ elif section == "Time Series":
                 fig.add_hline(y=sign * ac.bound[0], line_dash="dot", line_color=ui.MUTED, row=1, col=i)
         ui.chart(fig.update_layout(title=f"Autocorrelation: {focus} ({series.lower()}), {lags} lags"), height=320)
     with card():
-        period = st.number_input("STL seasonal period", 2, max(3, len(x) // 2), min(SEASON_PERIOD[s.freq], len(x) // 2))
-        parts = stats.timeseries.decompose(x, int(period))
+        season = st.number_input("STL seasonal period", 2, max(3, len(x) // 2), min(SEASON_PERIOD[s.freq], len(x) // 2))
+        parts = stats.timeseries.decompose(x, int(season))
         fig = make_subplots(rows=4, cols=1, shared_xaxes=True, subplot_titles=list(parts.columns), vertical_spacing=0.05)
         for i, col in enumerate(parts.columns, start=1):
             fig.add_scatter(x=parts.index, y=parts[col], row=i, col=1, mode="lines", line_color=ui.series_color(1))
