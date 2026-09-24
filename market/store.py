@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS profiles(
 CREATE TABLE IF NOT EXISTS portfolios(name VARCHAR PRIMARY KEY, cash DOUBLE, benchmark VARCHAR);
 CREATE TABLE IF NOT EXISTS holdings(
     portfolio VARCHAR, ticker VARCHAR, units DOUBLE, cost_price DOUBLE, PRIMARY KEY (portfolio, ticker));
+CREATE TABLE IF NOT EXISTS inflation(
+    region VARCHAR, date DATE, cpi DOUBLE, PRIMARY KEY (region, date));
 CREATE TABLE IF NOT EXISTS ingest_log(
     ticker VARCHAR PRIMARY KEY, first_date DATE, last_date DATE,
     last_run TIMESTAMP, status VARCHAR, error VARCHAR);
@@ -91,6 +93,11 @@ def delete(tickers: list[str]) -> None:
     with connect() as con:
         for table in ("prices", "ingest_log", "instruments"):
             con.execute(f"DELETE FROM {table} WHERE list_contains(?, ticker)", [list(tickers)])
+
+
+def inflation_coverage() -> pd.DataFrame:
+    from market import inflation
+    return inflation.coverage()
 
 
 def custom() -> list[str]:

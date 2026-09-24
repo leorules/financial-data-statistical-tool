@@ -37,7 +37,7 @@ in `market/interpret.py`. Free, instant and offline.
 | Portfolio | Holdings with cost base and cash: value vs benchmark, weights by holding, asset class or sector, concentration, positions, contribution to return, contribution to risk, portfolio risk metrics, and the portfolio through past stress periods |
 | Stress Periods | Pick a stress period (Great Depression, GFC, COVID-19 crash…) or add your own: indexed chart, per-series impact, volatility and recovery times, correlation shift and its path, basket stress test, and the same basket ranked across every period with a coverage share |
 | Code Lab | Python editor with `prices()`, `returns()`, `stats`, `px`, `plt`, `show()` preloaded |
-| Data Manager | Refresh data, custom tickers, coverage by list, data-quality checks (missing, stale, zero-priced, failed) and the ingest log |
+| Data Manager | Refresh data, custom tickers, inflation for the major financial hubs, coverage by list, data-quality checks (missing, stale, zero-priced, failed) and the ingest log |
 
 On the analysis pages, **Analyse → Asset classes** represents each asset class by a benchmark
 (`market/benchmarks.py`). A **Benchmarks** switch chooses between two categories:
@@ -92,5 +92,13 @@ the accumulation series, and the S&P 500's 2010–15 Sharpe rises by about 0.25 
 - `market/`: data layer (`store`, `universe`, `ingest`, `providers/`), analytics (`indicators`, `returns`, `stats/`), `filters`, `sandbox`, and `ui` helpers
 - `pages/`: thin Streamlit pages
 - `tests/`: run with `.venv/Scripts/python -m pytest`
+
+## Inflation
+Consumer price indices for eight financial centres (Sydney, New York, London, Frankfurt, Tokyo, Zurich,
+Toronto, Seoul) come from the OECD's public SDMX service and are stored in an `inflation` table. Frequency
+follows each statistical office: Australia is quarterly back to 1960, the rest monthly back to 1970.
+Download them from **Data Manager**. In the Code Lab, `inflation.yoy("AUS")` gives the rate and
+`inflation.deflate(series)` restates a series in today's money. Singapore, Hong Kong and mainland China
+publish nothing comparable for free, and FRED is unreachable from this machine.
 
 Stop the app before running `scripts/refresh.py` from a terminal: DuckDB allows only one writer process at a time.

@@ -1,8 +1,9 @@
 import time
 
+import pandas as pd
 import streamlit as st
 
-from market import ingest, store, universe, ui
+from market import inflation, ingest, store, universe, ui
 
 ui.header("Data Manager", "Download and refresh prices, manage custom tickers, and check the ingest log.")
 
@@ -41,6 +42,30 @@ with st.container(border=True):
                          type="primary" if name == "indices" else "secondary"):
                 names = universe.NAMES if name == "all" else [name]
                 refresh([t for n in names for t in universe.sync(n)["ticker"]])
+
+with st.container(border=True):
+    c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
+    c1.markdown("**Inflation**")
+    c1.caption("Consumer price indices for the major financial centres, from the OECD. Australia is quarterly "
+               "because the ABS publishes it that way; the rest are monthly.")
+    if c2.button("Download inflation", icon=":material/download:"):
+        bar = st.progress(0.0, text="Fetching…")
+        log = inflation.refresh(on_progress=lambda p, msg: bar.progress(p, text=msg))
+        ui.clear_cache()
+        failed = log[log.error.notna()]
+        st.success(f"{len(log) - len(failed)}/{len(log)} regions updated.", icon=":material/check_circle:")
+        if len(failed):
+            st.warning("Failed: " + ", ".join(f"{r.region} ({r.error})" for _, r in failed.iterrows()))
+    cover_cpi = ui.db("inflation_coverage")
+    st.dataframe(cover_cpi, hide_index=True, column_config={
+        "region": None, "hub": st.column_config.TextColumn("Hub", width="medium"), "frequency": "Published",
+        "observations": st.column_config.NumberColumn("Readings", format="%d"),
+        "first": st.column_config.DateColumn("From", format="MMM YYYY"),
+        "latest": st.column_config.DateColumn("To", format="MMM YYYY")})
+    stale = cover_cpi[cover_cpi.latest.notna() & (cover_cpi.latest < pd.Timestamp.today() - pd.Timedelta(days=270))]
+    if len(stale):
+        st.caption("The OECD series for " + ", ".join(stale.hub.str.split(" · ").str[1])
+                   + " has not been updated recently; the readings above are the latest published.")
 
 left, right = st.columns(2)
 with left.container(border=True, height="stretch"):

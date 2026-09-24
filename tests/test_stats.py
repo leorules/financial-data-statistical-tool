@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 from scipy import stats as st
 
-from market import factors, returns, stats, tearsheet
+from market import factors, inflation, returns, stats, tearsheet
 
 
 @pytest.fixture
@@ -223,3 +223,23 @@ def test_tearsheet_records_how_the_numbers_were_made():
     assert "Live cash rate" in html and "1,264 returns." in html
     assert html.count("<h2>") == 1, "empty sections are left out"
     assert "^AXJO" in html and "Generated" in html
+
+
+def test_inflation_helpers(monkeypatch):
+    quarters = pd.period_range("2020Q1", periods=12, freq="Q").to_timestamp(how="end").normalize()
+    cpi = pd.Series(np.linspace(100, 122, 12), index=quarters)   # about 4.6% a year
+    monkeypatch.setattr(inflation, "series", lambda region="AUS": cpi)
+
+    rate = inflation.yoy("AUS")
+    assert rate.between(0.03, 0.09).all(), "a steady climb gives a steady rate"
+
+    nominal = pd.Series(np.linspace(100, 122, 12), index=quarters)  # grows exactly with prices
+    real = inflation.deflate(nominal, "AUS")
+    assert real.iloc[0] == pytest.approx(real.iloc[-1], rel=1e-9), "no real growth once prices are removed"
+    assert real.iloc[-1] == pytest.approx(nominal.iloc[-1]), "stated in the final period's money"
+
+
+def test_inflation_hubs_are_configured_with_a_publication_frequency():
+    assert set(inflation.HUBS) >= {"AUS", "USA", "GBR", "EA20", "JPN"}
+    assert all(freq in ("M", "Q") for _, freq, _ in inflation.HUBS.values())
+    assert inflation.HUBS["AUS"][1] == "Q", "the ABS publishes Australian CPI quarterly"

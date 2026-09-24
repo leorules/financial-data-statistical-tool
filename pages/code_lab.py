@@ -80,6 +80,8 @@ with st.expander("Reference"):
 | `stats` | `descriptive`, `rolling`, `correlation`, `distribution`, `hypothesis`, `risk`, `regression`, `timeseries`, `multivariate` |
 | `store` | Database access, e.g. `store.instruments()`, `store.query(sql)` |
 | `benchmarks` | Asset-class benchmark table, e.g. `benchmarks.TABLE`, `benchmarks.select(["Equities"])` |
+| `inflation` | CPI for the major hubs: `inflation.yoy("AUS")`, `inflation.deflate(series)`, `inflation.HUBS` |
+| `factors` | Risk-factor proxies: `factors.returns(prices(factors.legs(["Size"])), ["Size"])` |
 | `pd`, `np` | pandas, NumPy |
 | `plt`, `sns` | matplotlib (pyplot), seaborn |
 | `px`, `go` | Plotly Express, Plotly graph objects |

@@ -24,7 +24,7 @@ import statsmodels.api as sm  # noqa: E402
 import statsmodels.formula.api as smf  # noqa: E402
 from matplotlib.axes import Axes  # noqa: E402
 
-from market import benchmarks, resample, stats, store  # noqa: E402
+from market import benchmarks, factors, inflation, resample, stats, store  # noqa: E402
 from market import returns as rets  # noqa: E402
 from market.config import SNIPPETS_DIR  # noqa: E402
 
@@ -95,7 +95,8 @@ def returns(tickers, freq: str = "D", kind: str = "simple", start=None, end=None
 
 def namespace(basket=()) -> dict:
     return {"prices": prices, "returns": returns, "basket": list(basket), "stats": stats, "store": store,
-            "benchmarks": benchmarks, "pd": pd, "np": np, "plt": plt, "sns": sns, "px": px, "go": go,
+            "benchmarks": benchmarks, "factors": factors, "inflation": inflation,
+            "pd": pd, "np": np, "plt": plt, "sns": sns, "px": px, "go": go,
             "scipy": scipy, "sm": sm, "smf": smf, "sklearn": sklearn, "math": math, "dt": dt}
 
 
