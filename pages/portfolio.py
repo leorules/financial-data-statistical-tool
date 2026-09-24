@@ -39,8 +39,13 @@ with st.container(border=True):
     cash = c1.number_input("Cash", min_value=0.0, value=float(meta.get("cash") or 0.0), step=1000.0)
     benchmark = c2.selectbox("Benchmark", tickers, index=tickers.index(meta.get("benchmark") or "^AXJO")
                              if (meta.get("benchmark") or "^AXJO") in tickers else 0, format_func=ui.label)
+    st.markdown("**Objective**", help="Super funds state a target as CPI plus a margin over a rolling horizon; "
+                                      "this is saved with the portfolio.")
+    margin, years, region = ui.objective_controls(float(meta.objective_margin), int(meta.objective_years),
+                                                  str(meta.cpi_region), key=f"obj_{name}")
     if c3.button("Save portfolio", type="primary", icon=":material/save:"):
-        portfolio.save(name, edited, cash, benchmark)
+        portfolio.save(name, edited, cash, benchmark, objective_margin=margin, objective_years=years,
+                       cpi_region=region)
         st.success(f"Saved {len(edited)} holdings.")
 
 ui.require(edited.dropna(subset=["ticker"]), "Add at least one holding, then press Save portfolio.")
@@ -163,6 +168,10 @@ with st.container(border=True):
             col.metric(label, value)
 
 history = ui.price_matrix(held.ticker.tolist(), ui.Settings(None, s.end, s.freq, s.kind, s.currency, s.basket))
+with st.container(border=True):
+    st.markdown(f"**:material/flag: Objective** · CPI + {margin:.1%} over rolling {years} years")
+    ui.objective_card(portfolio.series(portfolio.values(held, history), cash), margin, years, region, "Portfolio")
+
 stress_table = portfolio.stress_history(history, table.weight)
 with st.container(border=True):
     st.markdown("**Today's portfolio through past stress periods**",

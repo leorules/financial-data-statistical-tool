@@ -689,6 +689,42 @@ def asset_classes(bench: pd.DataFrame, table: pd.DataFrame, horizon: str, metric
     return reading
 
 
+def objective(table: pd.DataFrame, subject: str, margin: float, years: int, region: str) -> Reading | None:
+    """Reading for a CPI + margin objective measured over rolling windows."""
+    if len(table) < 2:
+        return None
+    from market.inflation import HUBS, met_rate
+    latest, hit, where = table.iloc[-1], met_rate(table), HUBS[region][0]
+    run = (table.excess > 0).astype(int)
+    streak = int(run.iloc[::-1].cumsum().eq(range(1, len(run) + 1)).sum()) if latest.excess > 0 else 0
+    verdict = "clears" if latest.excess > 0 else "falls short of"
+    reading = Reading(
+        f"{subject} {verdict} CPI + {pct(margin, 1)} over the {years} years to {table.index[-1]:%b %Y}, returning "
+        f"{pct(latest.achieved)} a year against a {pct(latest.target)} target.",
+        findings=[
+            f"**The target moves with prices:** {where} inflation ran {pct(latest.inflation)} a year over this "
+            f"window, so the objective was {pct(latest.target)}, not a fixed number. A fund meets it by beating "
+            "inflation, which is harder in the windows where inflation itself was high.",
+            f"**Consistency:** the objective was met in {pct(hit, 0)} of {len(table)} rolling {years}-year windows "
+            f"since {table.index[0]:%b %Y}"
+            + (f", the most recent {streak} of them consecutively." if streak > 1 else "."),
+            f"**Best and worst windows:** {pct(table.excess.max(), 1, True)} above target at its best and "
+            f"{pct(table.excess.min(), 1, True)} at its worst.",
+        ],
+        implications=[
+            f"An objective is a long-horizon promise: a {years}-year window smooths everything shorter, so a bad "
+            "year shows up slowly and leaves slowly."
+            if hit > 0.5 else
+            f"Missing in {pct(1 - hit, 0)} of windows means the shortfall is the normal case here, not bad luck."],
+        caveats=["Returns here are gross. Published objectives are after fees and tax, so a fund charging 0.6% a "
+                 "year needs to beat this by that much to report the same result.",
+                 f"Windows overlap, so {len(table)} readings are far fewer than {len(table)} independent tests.",
+                 PAST],
+        terms=["CAGR"],
+    )
+    return reading
+
+
 def risk_table(table: pd.DataFrame, group: str, period: str) -> Reading | None:
     """Reading for the cross-sectional risk table of many instruments."""
     if len(table) < 2:

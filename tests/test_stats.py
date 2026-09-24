@@ -243,3 +243,39 @@ def test_inflation_hubs_are_configured_with_a_publication_frequency():
     assert set(inflation.HUBS) >= {"AUS", "USA", "GBR", "EA20", "JPN"}
     assert all(freq in ("M", "Q") for _, freq, _ in inflation.HUBS.values())
     assert inflation.HUBS["AUS"][1] == "Q", "the ABS publishes Australian CPI quarterly"
+
+
+def _cpi(quarters=80, annual=0.025):
+    idx = pd.period_range("2000Q1", periods=quarters, freq="Q").to_timestamp(how="end").normalize()
+    return pd.Series(100 * (1 + annual) ** (np.arange(quarters) / 4), index=idx)
+
+
+def test_objective_measures_growth_against_cpi_plus_a_margin(monkeypatch):
+    cpi = _cpi()
+    monkeypatch.setattr(inflation, "series", lambda region="AUS": cpi)
+
+    # A series that grows exactly with prices misses the objective by the whole margin.
+    with_prices = inflation.objective(cpi.copy(), margin=0.035, years=10)
+    assert len(with_prices) > 5
+    assert with_prices.excess.round(6).eq(-0.035).all()
+    assert inflation.met_rate(with_prices) == 0.0
+
+    # "CPI + 3.5%" is additive, as APRA and the funds state it, so a series growing at 2.5 + 3.5 = 6.0%
+    # a year lands exactly on the objective.
+    idx = cpi.index
+    on_target = pd.Series(100 * 1.06 ** (np.arange(len(idx)) / 4), index=idx)
+    hit = inflation.objective(on_target, margin=0.035, years=10)
+    assert hit.excess.abs().max() < 1e-9
+    assert hit.achieved.round(6).eq(0.06).all()
+
+    # Compounding the margin instead beats the additive target by the cross term, 2.5% x 3.5%.
+    compounded = pd.Series(cpi.to_numpy() * 1.035 ** (np.arange(len(idx)) / 4), index=idx)
+    assert inflation.objective(compounded, margin=0.035, years=10).excess.max() == pytest.approx(0.025 * 0.035, abs=1e-6)
+
+
+def test_objective_needs_a_full_window(monkeypatch):
+    cpi = _cpi()
+    monkeypatch.setattr(inflation, "series", lambda region="AUS": cpi)
+    assert inflation.objective(cpi.tail(20), years=10).empty
+    assert np.isnan(inflation.met_rate(inflation.objective(cpi.tail(20), years=10)))
+    assert not inflation.objective(cpi, years=5).empty, "a shorter horizon fits the same history"

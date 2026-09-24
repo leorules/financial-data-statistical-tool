@@ -33,8 +33,8 @@ in `market/interpret.py`. Free, instant and offline.
 | Screener | Universe/sector filters plus rules like `close > sma_200`, presets, CSV export, send results to the basket |
 | Compare | Rebased performance from a common start, risk table with optional benchmark columns, drawdowns, HTML tearsheet (tickers or asset classes) |
 | Correlation | Correlation/covariance matrices, average pairwise correlation through time, p-values, pair analysis, PCA, portfolios (tickers or asset classes) |
-| Statistics | Descriptive, rolling, distribution, hypothesis tests, risk, regression, factor exposures, time series, seasonality (tickers or asset classes) |
-| Portfolio | Holdings with cost base and cash: value vs benchmark, weights by holding, asset class or sector, concentration, positions, contribution to return, contribution to risk, portfolio risk metrics, and the portfolio through past stress periods |
+| Statistics | Descriptive, rolling, distribution, hypothesis tests, risk, regression, factor exposures, CPI+X objective, time series, seasonality (tickers or asset classes) |
+| Portfolio | Holdings with cost base and cash: value vs benchmark, weights by holding, asset class or sector, concentration, positions, contribution to return, contribution to risk, portfolio risk metrics, a CPI+X objective saved with the portfolio, and the portfolio through past stress periods |
 | Stress Periods | Pick a stress period (Great Depression, GFC, COVID-19 crash…) or add your own: indexed chart, per-series impact, volatility and recovery times, correlation shift and its path, basket stress test, and the same basket ranked across every period with a coverage share |
 | Code Lab | Python editor with `prices()`, `returns()`, `stats`, `px`, `plt`, `show()` preloaded |
 | Data Manager | Refresh data, custom tickers, inflation for the major financial hubs, coverage by list, data-quality checks (missing, stale, zero-priced, failed) and the ingest log |
@@ -97,7 +97,7 @@ the accumulation series, and the S&P 500's 2010–15 Sharpe rises by about 0.25 
 Consumer price indices for eight financial centres (Sydney, New York, London, Frankfurt, Tokyo, Zurich,
 Toronto, Seoul) come from the OECD's public SDMX service and are stored in an `inflation` table. Frequency
 follows each statistical office: Australia is quarterly back to 1960, the rest monthly back to 1970.
-Download them from **Data Manager**. In the Code Lab, `inflation.yoy("AUS")` gives the rate and
+Download them from **Data Manager**. The **Objective** section in Statistics and the objective card on **Portfolio** measure a rolling annualised return against a CPI + margin target, the way a super fund states one ("CPI + 3.5% over rolling 10 years"). Both use full history rather than the sidebar range, since a ten-year window needs ten years, and both report gross returns — published objectives are after fees and tax. The ASX 200 price index meets CPI + 3.5% in 21% of rolling ten-year windows; VAS.AX, the same market on a total-return basis, meets it in 97%. In the Code Lab, `inflation.yoy("AUS")` gives the rate and
 `inflation.deflate(series)` restates a series in today's money. Singapore, Hong Kong and mainland China
 publish nothing comparable for free, and FRED is unreachable from this machine.
 

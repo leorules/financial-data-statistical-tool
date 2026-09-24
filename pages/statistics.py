@@ -15,6 +15,7 @@ ui.require(inst)
 SECTIONS = {"Descriptive": ":material/table_chart:", "Rolling": ":material/show_chart:",
             "Distribution": ":material/bar_chart:", "Hypothesis": ":material/science:", "Risk": ":material/shield:",
             "Regression": ":material/trending_up:", "Factors": ":material/scatter_plot:",
+            "Objective": ":material/flag:",
             "Time Series": ":material/timeline:",
             "Seasonality": ":material/calendar_month:"}
 SEASON_PERIOD = {"D": 21, "W": 52, "M": 12}
@@ -231,6 +232,19 @@ elif section == "Regression":
         line(pd.DataFrame({"Price": prices[focus], "Trend": line_fit}), log_y=True)
     reading = interpret.regression(coefficients, diagnostics, trend, y_name, series == "Returns", s.freq,
                                    prices[focus], line_fit)
+
+elif section == "Objective":
+    with card():
+        margin, years, region = ui.objective_controls(key="stats_obj")
+    # Full history, not the sidebar range: a ten-year window needs ten years regardless of what is on screen.
+    level = ui.series_matrix([focus], ui.Settings(None, s.end, s.freq, s.kind, s.currency, s.basket), "Price",
+                             {focus: groups[focus]} if groups else None)[focus].dropna()
+    st.caption(f"Measured over {focus}'s full history to {s.end:%b %Y}, not the sidebar range, since a rolling "
+               f"{years}-year window needs {years} years.")
+    with card(f"{focus} against CPI + {margin:.1%} over rolling {years} years"):
+        table = ui.objective_card(level, margin, years, region, focus)
+    if len(table):
+        reading = interpret.objective(table, focus, margin, years, region)
 
 elif section == "Factors":
     rf = returns[focus]

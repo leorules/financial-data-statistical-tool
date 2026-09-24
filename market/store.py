@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS profiles(
     ticker VARCHAR PRIMARY KEY, summary VARCHAR, sector VARCHAR, industry VARCHAR, website VARCHAR,
     fetched TIMESTAMP);
 CREATE TABLE IF NOT EXISTS portfolios(name VARCHAR PRIMARY KEY, cash DOUBLE, benchmark VARCHAR);
+ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS objective_margin DOUBLE;
+ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS objective_years INTEGER;
+ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS cpi_region VARCHAR;
 CREATE TABLE IF NOT EXISTS holdings(
     portfolio VARCHAR, ticker VARCHAR, units DOUBLE, cost_price DOUBLE, PRIMARY KEY (portfolio, ticker));
 CREATE TABLE IF NOT EXISTS inflation(

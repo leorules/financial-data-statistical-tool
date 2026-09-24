@@ -77,6 +77,30 @@ def deflate(values: pd.Series, region: str = "AUS") -> pd.Series:
     return values * cpi.iloc[-1] / cpi if cpi.notna().any() else values
 
 
+def objective(values: pd.Series, region: str = "AUS", margin: float = 0.035, years: int = 10) -> pd.DataFrame:
+    """Rolling annualised return against a CPI + margin target, the way a super fund states its objective.
+
+    Quarter-end steps, because Australian CPI is published quarterly and the coarsest input sets the
+    step. Returns an empty frame when the history is shorter than one window, so callers can say so.
+    """
+    v = values.dropna().resample("QE").last().dropna()
+    cpi = series(region)
+    if len(cpi) < 2 or len(v) <= years * 4:
+        return pd.DataFrame(columns=["achieved", "inflation", "target", "excess"])
+    aligned = cpi.reindex(v.index.union(cpi.index)).interpolate().reindex(v.index)
+    steps = years * 4
+    out = pd.DataFrame({"achieved": (v / v.shift(steps)) ** (1 / years) - 1,
+                        "inflation": (aligned / aligned.shift(steps)) ** (1 / years) - 1}).dropna()
+    out["target"] = out.inflation + margin
+    out["excess"] = out.achieved - out.target
+    return out
+
+
+def met_rate(frame: pd.DataFrame) -> float:
+    """Share of rolling windows where the objective was met."""
+    return float((frame.excess > 0).mean()) if len(frame) else float("nan")
+
+
 def coverage() -> pd.DataFrame:
     """What is stored per region, for the Data Manager."""
     held = store.query("SELECT region, count(*) AS observations, min(date) AS first, max(date) AS latest "

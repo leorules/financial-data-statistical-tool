@@ -97,3 +97,16 @@ def test_concentration_and_grouping():
     by_class = portfolio.by_group(table, inst, "asset_class")
     assert by_class.loc["Equities", "weight"] == pytest.approx(1.0)
     assert portfolio.by_group(table, inst, "sector").index.tolist() == ["Banks", "Miners"]
+
+
+def test_a_portfolio_remembers_its_objective(temp_db):
+    holdings = pd.DataFrame({"ticker": ["BHP.AX"], "units": [100.0], "cost_price": [40.0]})
+    portfolio.save("obj", holdings, 500.0, "^AXJO", objective_margin=0.045, objective_years=7, cpi_region="USA")
+    _, meta = portfolio.load("obj")
+    assert (meta.objective_margin, meta.objective_years, meta.cpi_region) == (0.045, 7, "USA")
+
+    # Saving without an objective falls back to the common super-fund target, not to nulls.
+    portfolio.save("plain", holdings, 0.0, "^GSPC")
+    _, plain = portfolio.load("plain")
+    assert (plain.objective_margin, plain.objective_years, plain.cpi_region) == (0.035, 10, "AUS")
+    assert portfolio.load("never-saved")[1].objective_years == 10

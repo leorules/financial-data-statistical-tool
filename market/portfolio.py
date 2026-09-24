@@ -12,21 +12,30 @@ def names() -> list[str]:
     return store.query("SELECT name FROM portfolios ORDER BY name")["name"].tolist()
 
 
+DEFAULTS = {"cash": 0.0, "benchmark": "^AXJO", "objective_margin": 0.035, "objective_years": 10,
+            "cpi_region": "AUS"}
+
+
 def load(name: str) -> tuple[pd.DataFrame, pd.Series]:
-    """Holdings and settings (cash, benchmark) for one portfolio."""
+    """Holdings and settings (cash, benchmark, CPI objective) for one portfolio."""
     holdings = store.query("SELECT ticker, units, cost_price FROM holdings WHERE portfolio = ? ORDER BY ticker", [name])
     meta = store.query("SELECT * FROM portfolios WHERE name = ?", [name])
-    default = pd.Series({"name": name, "cash": 0.0, "benchmark": "^AXJO"})
-    return holdings, meta.iloc[0] if len(meta) else default
+    settings = pd.Series({"name": name} | DEFAULTS)
+    if len(meta):
+        settings.update(meta.iloc[0].dropna())
+    return holdings, settings
 
 
-def save(name: str, holdings: pd.DataFrame, cash: float, benchmark: str) -> None:
+def save(name: str, holdings: pd.DataFrame, cash: float, benchmark: str, **objective) -> None:
+    """Replace a portfolio's holdings and settings. Columns are named so the row survives new ones."""
     holdings = holdings.dropna(subset=["ticker"]).query("ticker != '' and units > 0")
+    settings = DEFAULTS | {"cash": float(cash), "benchmark": benchmark} | objective
     with store.connect() as con:
         con.execute("DELETE FROM holdings WHERE portfolio = ?", [name])
         con.register("incoming", holdings.assign(portfolio=name)[["portfolio", *COLUMNS]])
         con.execute("INSERT INTO holdings SELECT * FROM incoming")
-        con.execute("INSERT OR REPLACE INTO portfolios VALUES (?, ?, ?)", [name, float(cash), benchmark])
+        con.execute(f"INSERT OR REPLACE INTO portfolios (name, {', '.join(settings)}) "
+                    f"VALUES (?, {', '.join('?' * len(settings))})", [name, *settings.values()])
 
 
 def delete(name: str) -> None:

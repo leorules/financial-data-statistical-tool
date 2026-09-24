@@ -3,9 +3,10 @@ from dataclasses import dataclass, replace
 from datetime import date, timedelta
 
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 
-from market import adjust, benchmarks, cash, descriptions, filters, indicators, resample, store, stress, tearsheet, universe
+from market import adjust, benchmarks, cash, descriptions, filters, indicators, inflation, resample, store, stress, tearsheet, universe
 from market.config import MIN_OBS, RISK_FREE
 from market import returns as rets
 
@@ -375,6 +376,40 @@ def chart(fig, container=None, height: int | None = None) -> None:
     fig.update_traces(line_width=2, selector=dict(type="scatter", mode="lines"))
     fig.update_traces(marker_size=7, selector=dict(type="scatter", mode="markers"))
     (container or st).plotly_chart(fig)
+
+
+def objective_controls(margin: float = 0.035, years: int = 10, region: str = "AUS", key: str = "obj"):
+    """Margin, horizon and CPI region, as a super fund states its objective."""
+    c1, c2, c3 = st.columns(3)
+    margin = c1.number_input("Margin over CPI (% a year)", 0.0, 10.0, margin * 100, 0.5, key=f"{key}_margin") / 100
+    years = c2.number_input("Over rolling (years)", 1, 30, int(years), key=f"{key}_years")
+    hubs = list(inflation.HUBS)
+    region = c3.selectbox("Inflation measured in", hubs, index=hubs.index(region) if region in hubs else 0,
+                          format_func=lambda r: inflation.HUBS[r][0], key=f"{key}_region")
+    return margin, int(years), region
+
+
+def objective_card(values: pd.Series, margin: float, years: int, region: str, subject: str) -> pd.DataFrame:
+    """Achieved return against a CPI + margin target, with the hit rate across rolling windows."""
+    table = inflation.objective(values, region, margin, years)
+    if table.empty:
+        st.info(f"{subject} needs more than {years} years of history overlapping {inflation.HUBS[region][0]} CPI "
+                "to measure a rolling window. Try a shorter horizon.")
+        return table
+    latest = table.iloc[-1]
+    k = st.columns(4)
+    k[0].metric("Achieved", f"{latest.achieved:.2%}", help=f"Annualised over the {years} years to "
+                                                           f"{table.index[-1]:%b %Y}")
+    k[1].metric("Objective", f"{latest.target:.2%}", help=f"CPI {latest.inflation:.2%} plus {margin:.1%}")
+    k[2].metric("Gap", f"{latest.excess:+.2%}", delta=f"{'met' if latest.excess > 0 else 'missed'}",
+                delta_color="normal" if latest.excess > 0 else "inverse")
+    k[3].metric("Windows met", f"{inflation.met_rate(table):.0%}", help=f"Across {len(table)} rolling windows")
+    fig = px.line(table[["achieved", "target"]].rename(columns={"achieved": subject, "target": f"CPI + {margin:.1%}"}),
+                  labels={"value": "", "date": ""}, title=f"{years}-year rolling return against the objective")
+    chart(fig.update_yaxes(tickformat=".1%"), height=340)
+    st.caption(f"{len(table)} rolling {years}-year windows from {table.index[0]:%b %Y}. Returns are gross: published "
+               "objectives are after fees and tax, so this reads high by roughly a fund's fee load.")
+    return table
 
 
 def stress_picker(key: str, container=None) -> list[str]:
