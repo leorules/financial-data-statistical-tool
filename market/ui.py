@@ -378,6 +378,47 @@ def chart(fig, container=None, height: int | None = None) -> None:
     (container or st).plotly_chart(fig)
 
 
+def benchmark_picker(inst: pd.DataFrame, default: str, key: str, container=None):
+    """Choose what to measure against: an official benchmark, an index, a fund, or inflation.
+
+    Individual companies are excluded — a stock is a holding, not a yardstick — and a search box
+    narrows what is otherwise a long list.
+    """
+    box = container or st
+    options = benchmarks.eligible(inst)
+    query = box.text_input("Search benchmarks", key=f"{key}_search", placeholder="e.g. ASX, aggregate, CPI")
+    shown = options[options.label.str.contains(query, case=False, na=False)] if query else options
+    if shown.empty:
+        box.caption(f"Nothing matches '{query}'.")
+        shown = options
+    keys = shown.key.tolist()
+    labels = dict(zip(shown.key, shown.group + " · " + shown.label))
+    index = keys.index(default) if default in keys else 0
+    return box.selectbox("Benchmark", keys, index=index, format_func=lambda k: labels[k], key=f"{key}_pick")
+
+
+def benchmark_returns(key: str, s: Settings):
+    """Return series for a benchmark key, which may be a ticker or an inflation series."""
+    if benchmarks.is_inflation(key):
+        cpi = inflation.series(key.removeprefix(benchmarks.CPI_PREFIX))
+        if cpi.empty:
+            return None
+        # CPI is published quarterly or monthly, so resampling it straight to the analysis interval
+        # leaves gaps that wipe out every return. Interpolate the level onto the analysis calendar
+        # first, using business days for a daily interval so the accrual annualises on 252.
+        step = {"D": "B", "W": "W", "M": "ME"}[s.freq]
+        level = cpi.resample(step).interpolate()
+        return level.loc[str(s.start) if s.start else None:str(s.end)].pct_change(fill_method=None).dropna()
+    return return_matrix([key], s, align="ffill").get(key)
+
+
+def benchmark_label(key: str) -> str:
+    if benchmarks.is_inflation(key):
+        from market.inflation import HUBS
+        return f"{HUBS[key.removeprefix(benchmarks.CPI_PREFIX)][0]} CPI"
+    return key
+
+
 def objective_controls(margin: float = 0.035, years: int = 10, region: str = "AUS", key: str = "obj"):
     """Margin, horizon and CPI region, as a super fund states its objective."""
     c1, c2, c3 = st.columns(3)

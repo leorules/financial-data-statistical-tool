@@ -4,7 +4,7 @@ import plotly.express as px
 import streamlit as st
 from plotly.subplots import make_subplots
 
-from market import factors, interpret, stats, ui
+from market import benchmarks, factors, interpret, stats, ui
 from market import returns as rets
 from market import resample
 from market.config import benchmark_for
@@ -50,10 +50,14 @@ loaded = list(inst.ticker)
 c1, c2, c3 = st.columns(3)
 focus = c1.selectbox("Focus", cols, format_func=ui.label)
 other = c2.selectbox("Compare with", [c for c in cols if c != focus] or cols, format_func=ui.label)
-default_bench = benchmark_for(focus, s.on("total_return"))
-bench_options = list(dict.fromkeys([default_bench, *loaded])) if default_bench in loaded else loaded
-bench = c3.selectbox("Benchmark", bench_options, format_func=ui.label)
-bench_r = ui.return_matrix([bench], s, align="ffill").get(bench)
+bench_key = ui.benchmark_picker(inst, benchmark_for(focus, s.on("total_return")), "stats_bench", c3)
+bench = ui.benchmark_label(bench_key)
+bench_r = ui.benchmark_returns(bench_key, s)
+if benchmarks.is_inflation(bench_key):
+    st.caption(f"{bench} is published "
+               f"{'quarterly' if bench_key.endswith('AUS') else 'monthly'} and interpolated between readings, so it "
+               "is far smoother than a market series. Beta against it is small by construction; the useful figures "
+               "are the return difference and whether it stays positive.")
 x = data[focus].dropna()
 reading = None
 
@@ -199,8 +203,11 @@ elif section == "Regression":
     with card():
         c1, c2 = st.columns([1, 2])
         y_name = c1.selectbox("Dependent (y)", cols, index=cols.index(focus), format_func=ui.label)
-        x_names = c2.multiselect("Independent (X)", list(dict.fromkeys([bench, *loaded])), default=[bench],
-                                 format_func=ui.label)
+        default_x = [benchmark_for(focus, s.on("total_return")) if benchmarks.is_inflation(bench_key) else bench_key]
+        x_names = c2.multiselect("Independent (X)", list(dict.fromkeys(default_x + loaded)), default=default_x,
+                                 format_func=ui.label,
+                                 help="Any series, including individual stocks — unlike the benchmark above, an "
+                                      "explanatory variable is not a yardstick")
     ui.require(x_names, "Pick at least one independent variable.")
     regressors = ui.series_matrix(x_names, s, series)
     involved = pd.concat([data[[y_name]], regressors], axis=1)

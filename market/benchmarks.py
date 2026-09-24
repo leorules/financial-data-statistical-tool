@@ -144,6 +144,32 @@ def _frame(basis: str, rows: list[tuple]) -> pd.DataFrame:
 TABLE = pd.concat([_frame("Standard", STANDARD), _frame("APRA", APRA)], ignore_index=True)
 
 
+# A benchmark is something a return is judged against: an index, a fund tracking one, or inflation.
+# A single company is not one, however large, so equities are left out.
+BENCHMARK_TYPES = ("index", "sector", "etf", "sector etf", "etn")
+CPI_PREFIX = "cpi:"
+
+
+def eligible(instruments: pd.DataFrame) -> pd.DataFrame:
+    """Valid benchmark choices as (key, label, group), most standard first."""
+    from market.inflation import HUBS
+
+    official = set(TABLE.ticker.dropna())
+    held = instruments[instruments.type.isin(BENCHMARK_TYPES)]
+    rows = [{"key": r.ticker, "group": "Asset-class benchmark", "label": f"{r.ticker} · {r['name']}"}
+            for _, r in held[held.ticker.isin(official)].iterrows()]
+    rows += [{"key": f"{CPI_PREFIX}{code}", "group": "Inflation", "label": f"{label} CPI"}
+             for code, (label, _, _) in HUBS.items()]
+    rows += [{"key": r.ticker, "group": "Index" if r.type in ("index", "sector") else "Fund",
+              "label": f"{r.ticker} · {r['name']}"}
+             for _, r in held[~held.ticker.isin(official)].iterrows()]
+    return pd.DataFrame(rows).drop_duplicates("key").reset_index(drop=True)
+
+
+def is_inflation(key: str) -> bool:
+    return isinstance(key, str) and key.startswith(CPI_PREFIX)
+
+
 def classes(basis: str = "Standard") -> list[str]:
     return TABLE[TABLE.basis == basis].asset_class.unique().tolist()
 

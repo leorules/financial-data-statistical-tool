@@ -62,3 +62,23 @@ def test_source_prefers_a_blend_then_a_ticker():
     assert benchmarks.source(equities) == "VAS.AX"
     assert "via 37.5% VGAD.AX" in benchmarks.describe(
         benchmarks.TABLE[benchmarks.TABLE.variant == "growth"].iloc[0])
+
+
+def test_a_single_company_is_never_offered_as_a_benchmark():
+    inst = pd.DataFrame({
+        "ticker": ["^AXJO", "STW.AX", "BHP.AX", "^AXPJ", "DJP"],
+        "name": ["S&P/ASX 200", "SPDR ASX 200", "BHP Group", "ASX 200 A-REIT", "Bloomberg Commodity ETN"],
+        "type": ["index", "etf", "equity", "sector", "etn"]})
+    options = benchmarks.eligible(inst)
+    assert "BHP.AX" not in set(options.key), "a stock is a holding, not a yardstick"
+    assert {"^AXJO", "STW.AX", "^AXPJ", "DJP"} <= set(options.key)
+    # Inflation is offered for every hub, and the official benchmarks come first.
+    assert options.key.str.startswith(benchmarks.CPI_PREFIX).sum() >= 5
+    assert options.group.iloc[0] == "Asset-class benchmark"
+    assert options.key.is_unique
+
+
+def test_inflation_keys_are_recognised():
+    assert benchmarks.is_inflation("cpi:AUS")
+    assert not benchmarks.is_inflation("^AXJO")
+    assert not benchmarks.is_inflation(None)
