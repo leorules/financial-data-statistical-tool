@@ -378,23 +378,28 @@ def chart(fig, container=None, height: int | None = None) -> None:
     (container or st).plotly_chart(fig)
 
 
-def benchmark_picker(inst: pd.DataFrame, default: str, key: str, container=None):
+def benchmark_picker(inst: pd.DataFrame, default: str, key: str):
     """Choose what to measure against: an official benchmark, an index, a fund, or inflation.
 
-    Individual companies are excluded — a stock is a holding, not a yardstick — and a search box
-    narrows what is otherwise a long list.
+    Individual companies are excluded — a stock is a holding, not a yardstick. Each entry says what it
+    benchmarks rather than only its ticker, and a type filter plus a search narrow a long list.
     """
-    box = container or st
     options = benchmarks.eligible(inst)
-    query = box.text_input("Search benchmarks", key=f"{key}_search", placeholder="e.g. ASX, aggregate, CPI")
-    shown = options[options.label.str.contains(query, case=False, na=False)] if query else options
-    if shown.empty:
-        box.caption(f"Nothing matches '{query}'.")
-        shown = options
+    c1, c2, c3 = st.columns([1, 1, 2], vertical_alignment="bottom")
+    kind = c1.selectbox("Benchmark type", ["All", *benchmarks.GROUPS], key=f"{key}_group",
+                        help="Asset-class benchmarks are the standard index for a class; funds track one")
+    query = c2.text_input("Search", key=f"{key}_search", placeholder="e.g. equities, ASX, CPI")
+    shown = options if kind == "All" else options[options.group == kind]
+    if query:
+        matched = shown[shown.label.str.contains(query, case=False, na=False)]
+        shown = matched if len(matched) else shown
+        if matched.empty:
+            c2.caption(f"Nothing matches '{query}'.")
     keys = shown.key.tolist()
-    labels = dict(zip(shown.key, shown.group + " · " + shown.label))
+    labels = dict(zip(shown.key, shown.label))
     index = keys.index(default) if default in keys else 0
-    return box.selectbox("Benchmark", keys, index=index, format_func=lambda k: labels[k], key=f"{key}_pick")
+    return c3.selectbox(f"Benchmark ({len(keys)})", keys, index=index, format_func=lambda k: labels[k],
+                        key=f"{key}_pick")
 
 
 def benchmark_returns(key: str, s: Settings):

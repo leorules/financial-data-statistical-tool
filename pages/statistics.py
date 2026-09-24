@@ -47,10 +47,10 @@ prices = ui.series_matrix(tickers, s, "Price", groups)
 cols = list(data.columns)
 loaded = list(inst.ticker)
 
-c1, c2, c3 = st.columns(3)
+c1, c2 = st.columns(2)
 focus = c1.selectbox("Focus", cols, format_func=ui.label)
 other = c2.selectbox("Compare with", [c for c in cols if c != focus] or cols, format_func=ui.label)
-bench_key = ui.benchmark_picker(inst, benchmark_for(focus, s.on("total_return")), "stats_bench", c3)
+bench_key = ui.benchmark_picker(inst, benchmark_for(focus, s.on("total_return")), "stats_bench")
 bench = ui.benchmark_label(bench_key)
 bench_r = ui.benchmark_returns(bench_key, s)
 if benchmarks.is_inflation(bench_key):

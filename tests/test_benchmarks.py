@@ -76,6 +76,14 @@ def test_a_single_company_is_never_offered_as_a_benchmark():
     assert options.key.str.startswith(benchmarks.CPI_PREFIX).sum() >= 5
     assert options.group.iloc[0] == "Asset-class benchmark"
     assert options.key.is_unique
+    assert set(options.group) <= set(benchmarks.GROUPS)
+
+    # Labels say what is being benchmarked, not just which ticker it is.
+    labels = dict(zip(options.key, options.label))
+    assert labels["^AXJO"].startswith("Equities · Australia"), labels["^AXJO"]
+    assert "S&P/ASX 200" in labels["^AXJO"] and "(^AXJO)" in labels["^AXJO"]
+    assert labels["^AXPJ"].startswith("Real estate · Australia")
+    assert labels["cpi:AUS"] == "Inflation · Australia — consumer prices"
 
 
 def test_inflation_keys_are_recognised():

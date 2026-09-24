@@ -150,18 +150,30 @@ BENCHMARK_TYPES = ("index", "sector", "etf", "sector etf", "etn")
 CPI_PREFIX = "cpi:"
 
 
+GROUPS = ["Asset-class benchmark", "Inflation", "Index", "Fund"]
+
+
+def _official_labels() -> dict[str, str]:
+    """Ticker to 'what it benchmarks', preferring the Standard headline row when a ticker serves several."""
+    rows = TABLE.dropna(subset=["ticker"]).copy()
+    rows["rank"] = (rows.basis != "Standard").astype(int) * 2 + (~rows.headline).astype(int)
+    rows = rows.sort_values("rank").drop_duplicates("ticker")
+    where = rows.region + rows.variant.map(lambda v: f", {v}" if v else "")
+    return dict(zip(rows.ticker, rows.asset_class + " · " + where + " — " + rows.benchmark))
+
+
 def eligible(instruments: pd.DataFrame) -> pd.DataFrame:
-    """Valid benchmark choices as (key, label, group), most standard first."""
+    """Valid benchmark choices as (key, group, label), each saying what it actually benchmarks."""
     from market.inflation import HUBS
 
-    official = set(TABLE.ticker.dropna())
+    official = _official_labels()
     held = instruments[instruments.type.isin(BENCHMARK_TYPES)]
-    rows = [{"key": r.ticker, "group": "Asset-class benchmark", "label": f"{r.ticker} · {r['name']}"}
+    rows = [{"key": r.ticker, "group": "Asset-class benchmark", "label": f"{official[r.ticker]} ({r.ticker})"}
             for _, r in held[held.ticker.isin(official)].iterrows()]
-    rows += [{"key": f"{CPI_PREFIX}{code}", "group": "Inflation", "label": f"{label} CPI"}
+    rows += [{"key": f"{CPI_PREFIX}{code}", "group": "Inflation", "label": f"Inflation · {label} — consumer prices"}
              for code, (label, _, _) in HUBS.items()]
     rows += [{"key": r.ticker, "group": "Index" if r.type in ("index", "sector") else "Fund",
-              "label": f"{r.ticker} · {r['name']}"}
+              "label": f"{r.get('asset_class') or 'Other'} — {r['name']} ({r.ticker})"}
              for _, r in held[~held.ticker.isin(official)].iterrows()]
     return pd.DataFrame(rows).drop_duplicates("key").reset_index(drop=True)
 
