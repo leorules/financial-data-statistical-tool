@@ -54,3 +54,21 @@ def test_custom_stress_periods_roundtrip(tmp_path, monkeypatch):
     assert "My stress period" in [e.name for e in stress.catalogue()]
     stress.delete_custom("My stress period")
     assert stress.custom() == []
+
+
+def test_across_periods_reports_partial_coverage():
+    idx = pd.bdate_range("1990-01-01", periods=9000)
+    old = pd.Series(np.linspace(100, 300, len(idx)), index=idx)
+    young = old.copy()
+    young[idx < pd.Timestamp("2015-01-01")] = np.nan          # only half the history
+    prices = pd.DataFrame({"OLD": old, "YOUNG": young})
+    weights = pd.Series({"OLD": 0.5, "YOUNG": 0.5})
+
+    table = stress.across_periods(prices, weights)
+    assert len(table) > 5
+    assert table.covered.between(0, 1).all()
+    gfc = table.loc["Global Financial Crisis (GFC)"]
+    assert gfc.covered == pytest.approx(0.5), "only the older series reaches 2007"
+    covid = table.loc["COVID-19 crash"]
+    assert covid.covered == pytest.approx(1.0)
+    assert table["return"].is_monotonic_increasing, "worst first"

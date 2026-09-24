@@ -5,12 +5,12 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from market import interpret, stress, ui
+from market import interpret, stats, stress, ui
 
 s = ui.settings()
 inst = ui.instruments()
 ui.require(inst)
-CONTEXT = {"1 month": 31, "3 months": 92, "6 months": 183, "1 year": 365, "2 years": 730}
+CONTEXT = {"1 month": 31, "3 months": 92, "6 months": 183, "1 year": 365, "2 years": 730, "Until recovery": None}
 PCT_COLUMNS = {"event_return": "Event return", "trough_return": "Low vs start", "max_drawdown": "Max drawdown",
                "worst_day": "Worst day", "vol_before": "Vol (year before)", "vol_during": "Vol (during)"}
 
@@ -23,8 +23,8 @@ with st.container(border=True):
     c1, c2 = st.columns([3, 2], vertical_alignment="bottom")
     default = next(i for i, p in enumerate(catalogue) if p.name == "COVID-19 crash")
     period = catalogue[labels.index(c1.selectbox("Stress period", labels, index=default))]
-    horizon = c2.select_slider("Show around the period", list(CONTEXT), value="6 months")
-    context = CONTEXT[horizon]
+    horizon = c2.select_slider("Show around the period", list(CONTEXT), value="6 months",
+                               help="'Until recovery' runs to the date the last series regained its pre-event level")
     tickers, groups = ui.subject_picker()
 ui.require(tickers, "Pick at least one ticker or asset class.")
 
@@ -51,13 +51,27 @@ with st.container(border=True):
                 f"({(end - start).days} days)")
     st.markdown(period.description)
 
-history = replace(s, start=(start - timedelta(days=400)).date(), end=date.today())
+# Full history: recovery can be decades out, and the cross-period view needs every era, not just
+# the years around the period on screen.
+history = replace(s, start=None, end=date.today())
 prices = ui.price_matrix(tickers, history, groups=groups)
 table = stress.impact(prices, period)
 missing = [t for t in tickers if t not in table.index]
 if missing:
     st.caption(f"No price history before the event start, so excluded: {', '.join(missing)}")
 ui.require(table, "None of the selected series have data covering this event. Try indices, or an asset class.")
+
+context = CONTEXT[horizon]
+if context is None:
+    recovered = table.recovery_date.dropna()
+    context = max(int((recovered.max() - end).days), 31) if len(recovered) else 730
+    st.caption(f"Running {context / 365:.1f} years past the end, to the date the last series regained its "
+               "pre-event level." if len(recovered) else "Nothing has recovered yet; showing two years after.")
+
+covered = len(table) / len(tickers)
+if covered < 1:
+    st.caption(f"**{covered:.0%} coverage**: {len(table)} of {len(tickers)} selected series have history reaching "
+               "back to this period, so everything below describes only those.")
 
 window = prices.loc[start - timedelta(days=context):end + timedelta(days=context), table.index]
 rebased = window / prices.loc[:start, table.index].ffill().iloc[-1] * 100
@@ -90,6 +104,16 @@ with left.container(border=True, height="stretch"):
         c1, c2 = st.columns(2)
         c1.metric("Year before", f"{corr_before:.2f}")
         c2.metric("During period", f"{corr_during:.2f}", f"{corr_during - corr_before:+.2f}", delta_color="inverse")
+        path_returns = prices.loc[start - timedelta(days=365):end + timedelta(days=context), table.index].pct_change()
+        roll = min(63, max(10, len(path_returns) // 6))
+        average = stats.correlation.rolling_average(path_returns.dropna(), roll)
+        if len(average) > 2:
+            fig = px.line(average.rename("Average pairwise correlation"), labels={"value": "", "date": ""})
+            fig.add_vrect(x0=start, x1=end, fillcolor=ui.MUTED, opacity=0.15, line_width=0, layer="below")
+            ui.chart(fig.update_layout(showlegend=False).update_yaxes(range=[min(-0.1, average.min() - 0.05), 1]),
+                     height=220)
+            st.caption(f"{roll}-day average across every pair, so a rise inside the shaded window is "
+                       "diversification weakening as the shock lands.")
     else:
         st.caption("Needs at least two series with overlapping data.")
 with right.container(border=True):
@@ -106,5 +130,25 @@ with right.container(border=True):
         fig = px.area(basket * amount, labels={"value": "", "date": ""}).update_layout(showlegend=False)
         fig.add_vrect(x0=start, x1=end, fillcolor=ui.MUTED, opacity=0.15, line_width=0, layer="below")
         ui.chart(fig, height=240)
+
+if basket is not None:
+    every = stress.across_periods(prices[table.index], weights.weight)
+    with st.container(border=True):
+        st.markdown("**This basket through every stress period**",
+                    help="The same weights held through each window with no rebalancing, worst first.")
+        left, right = st.columns([3, 2])
+        fig = px.bar(every.sort_values("return"), x="return", y=every.sort_values("return").index,
+                     orientation="h", labels={"return": "", "y": ""}, text_auto=".0%")
+        ui.chart(fig.update_layout(showlegend=False, xaxis_tickformat=".0%"), left, height=max(320, 26 * len(every)))
+        right.dataframe(every[["return", "worst", "covered"]], column_config={
+            "return": st.column_config.NumberColumn("Return", format="percent"),
+            "worst": st.column_config.NumberColumn("Worst point", format="percent"),
+            "covered": st.column_config.NumberColumn("Coverage", format="percent",
+                                                     help="Share of the basket with history reaching that period")},
+            height=max(320, 26 * len(every)))
+        thin = every[every.covered < 1]
+        if len(thin):
+            st.caption(f"{len(thin)} of {len(every)} periods rest on part of the basket only — before 1971 just the "
+                       "S&P 500 has data, so an early result carries the whole basket's name on one series.")
 
 ui.explain(interpret.stress_period(period, table, corr_before, corr_during, basket, amount, horizon))

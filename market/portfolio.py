@@ -121,17 +121,5 @@ def risk_contributions(returns: pd.DataFrame, weights: pd.Series) -> pd.DataFram
 
 
 def stress_history(prices: pd.DataFrame, weights: pd.Series, periods=None) -> pd.DataFrame:
-    """Today's weights applied to each past stress period: return, worst point and recovery."""
-    rows = {}
-    for period in periods or stress.catalogue():
-        available = [t for t in weights.index if t in prices and prices[t].first_valid_index() is not None
-                     and prices[t].first_valid_index() <= pd.Timestamp(period.start)]
-        if not available:
-            continue
-        path = stress.stress_test(prices, weights[available], period)
-        if len(path) < 2:
-            continue
-        rows[period.name] = {"start": pd.Timestamp(period.start), "end": pd.Timestamp(period.end),
-                             "return": path.iloc[-1] - 1, "worst": path.min() - 1,
-                             "covered": len(available) / len(weights)}
-    return pd.DataFrame.from_dict(rows, orient="index").sort_values("return")
+    """Today's weights applied to each past stress period: return, worst point and coverage."""
+    return stress.across_periods(prices, weights, periods)

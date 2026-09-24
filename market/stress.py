@@ -176,6 +176,27 @@ def correlation_shift(prices: pd.DataFrame, period: StressPeriod, lookback: int 
     return average(before), average(during)
 
 
+def across_periods(prices: pd.DataFrame, weights: pd.Series, periods=None) -> pd.DataFrame:
+    """One basket through every stress period: return, worst point, and how much of it had data.
+
+    `covered` matters more than it looks. Only the S&P 500 reaches back before 1971, so a pre-war
+    result can rest on a single series while carrying the whole basket's name.
+    """
+    rows = {}
+    for period in periods or catalogue():
+        available = [t for t in weights.index if t in prices and prices[t].first_valid_index() is not None
+                     and prices[t].first_valid_index() <= pd.Timestamp(period.start)]
+        if not available:
+            continue
+        path = stress_test(prices, weights[available], period)
+        if len(path) < 2:
+            continue
+        rows[period.name] = {"start": pd.Timestamp(period.start), "end": pd.Timestamp(period.end),
+                             "return": path.iloc[-1] - 1, "worst": path.min() - 1,
+                             "covered": len(available) / len(weights)}
+    return pd.DataFrame.from_dict(rows, orient="index").sort_values("return")
+
+
 def stress_test(prices: pd.DataFrame, weights: pd.Series, period: StressPeriod, after_days: int = 0) -> pd.Series:
     """Buy-and-hold basket from the period start until `after_days` past its end, indexed to 1 (weights normalised)."""
     start, end = pd.Timestamp(period.start), pd.Timestamp(period.end) + pd.Timedelta(days=after_days)
