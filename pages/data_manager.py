@@ -95,8 +95,10 @@ issues = ui.db("quality")
 left, right = st.columns([3, 4])
 with left.container(border=True, height="stretch"):
     st.markdown("**Coverage by list**", help="Instruments held versus those with prices downloaded.")
-    st.dataframe(cover, hide_index=True, column_config={
+    st.dataframe(cover.merge(universe.sources()[["universe", "source"]], on="universe", how="left"),
+                 hide_index=True, column_config={
         "universe": st.column_config.TextColumn("List"), "instruments": "Held", "with_data": "With prices",
+        "source": st.column_config.TextColumn("Members from", width="medium"),
         "last_date": st.column_config.DateColumn("Latest bar", format="DD MMM YYYY")})
     behind = cover[cover.with_data < cover.instruments]
     if len(behind):
@@ -113,6 +115,36 @@ with right.container(border=True, height="stretch"):
         "examples": st.column_config.TextColumn("Examples", width="large")})
     st.caption("Zero prices come from Yahoo for suspended microcaps; they are treated as missing data, so those "
                "instruments are measured only over the days they actually traded.")
+
+with st.container(border=True):
+    st.markdown("**Where the data comes from**",
+                help="Every dataset, its origin and how it reaches the database.")
+    st.dataframe(pd.DataFrame([
+        {"Dataset": "Prices and volumes", "Source": "Yahoo Finance (yfinance)",
+         "Detail": "Daily OHLCV. Adjusted close carries dividends and splits; close does not.",
+         "Link": "https://finance.yahoo.com"},
+        {"Dataset": "Index members (ASX 200, S&P 500)", "Source": "Wikipedia",
+         "Detail": "Current constituents only, scraped and cached as CSV — historical membership is not available.",
+         "Link": universe.WIKI["asx200"][0]},
+        {"Dataset": "Every ASX listing", "Source": "ASX company directory",
+         "Detail": "Codes, names and GICS industry groups for about 1,800 companies.",
+         "Link": universe.ASX_FALLBACK},
+        {"Dataset": "Curated lists", "Source": "market/universe.py",
+         "Detail": "Indices, ETFs, commodities, rates, FX and crypto are hand-picked ticker tables.", "Link": ""},
+        {"Dataset": "Asset-class benchmarks", "Source": "market/benchmarks.py",
+         "Detail": "Standard and APRA categories, each priced from a Yahoo series or a blend of them.", "Link": ""},
+        {"Dataset": "Cash rates", "Source": "Yahoo Finance",
+         "Detail": "^IRX for US dollars and BILL.AX for Australian dollars, used by the live cash rate adjustment.",
+         "Link": ""},
+        {"Dataset": "Inflation", "Source": "OECD SDMX",
+         "Detail": "CPI for eight financial hubs. FRED is the usual source and is unreachable from here.",
+         "Link": "https://sdmx.oecd.org"},
+    ]), hide_index=True, column_config={
+        "Dataset": st.column_config.TextColumn(width="medium"),
+        "Detail": st.column_config.TextColumn(width="large"),
+        "Link": st.column_config.LinkColumn("Link", display_text="open")})
+    st.caption("Everything is free and public. Nothing here is survivorship-adjusted: index lists are today's "
+               "members applied to history, which flatters results before the present composition existed.")
 
 with st.container(border=True):
     log = ui.db("ingest_log")

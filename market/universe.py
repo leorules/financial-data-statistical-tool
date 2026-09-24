@@ -224,6 +224,16 @@ def kinds(types) -> list[str]:
     return [kind for kind, members in KINDS.items() if present & set(members)]
 
 
+def sources() -> pd.DataFrame:
+    """Where each list of instruments comes from, read from the URLs the code actually fetches."""
+    curated = "Curated in market/universe.py"
+    rows = [(name, curated, "") for name in ("indices", "etfs", "commodities", "rates", "fx", "crypto")]
+    rows += [("asx200", "Wikipedia", WIKI["asx200"][0]), ("sp500", "Wikipedia", WIKI["sp500"][0]),
+             ("asx_listed", "ASX company directory", ASX_FALLBACK),
+             ("custom", "Tickers you added by hand", "")]
+    return pd.DataFrame(rows, columns=["universe", "source", "url"])
+
+
 def sort(inst: pd.DataFrame) -> pd.DataFrame:
     """Order instruments for pickers: built-in lists in curated order, then custom, then index members."""
     group = {name: i for i, name in enumerate(PICKER_ORDER)}

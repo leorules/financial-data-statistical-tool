@@ -74,3 +74,12 @@ def test_asx_listed_parses_the_exchange_directory(monkeypatch):
     assert listed.ticker.tolist() == ["BHP.AX", "14D.AX"]
     assert listed.name.tolist() == ["Bhp Group Limited", "1414 Degrees Limited"]
     assert listed.sector.tolist() == ["Materials", "Capital Goods"]
+
+
+def test_every_universe_declares_where_its_members_come_from():
+    sources = universe.sources()
+    assert set(sources.universe) == set(universe.NAMES), "no list may be missing from the sources panel"
+    assert sources.source.str.len().gt(0).all()
+    # Scraped lists cite the page they are scraped from.
+    scraped = sources.set_index("universe").loc[["asx200", "sp500", "asx_listed"], "url"]
+    assert scraped.str.startswith("http").all()
