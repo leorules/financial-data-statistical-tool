@@ -8,6 +8,9 @@ ADJUSTMENTS = {
     "live_cash": ("Live cash rate",
                   "Subtract the cash rate that actually applied on each date (^IRX, BILL.AX) instead of "
                   "a flat 4% assumption."),
+    "align_closes": ("Align market close times",
+                     "Carry markets that close after the ASX forward one day, so a daily return is "
+                     "paired with news the local market had actually seen. Only affects daily data."),
     "hac": ("Robust standard errors",
             "Use Newey–West errors in regressions, which allow for autocorrelated and "
             "heteroskedastic returns. Coefficients are unchanged; significance moves."),

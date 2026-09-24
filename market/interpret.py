@@ -21,7 +21,9 @@ GLOSSARY = {
     "z-score": "How many standard deviations a value sits from its average.",
     "Rolling window": "A statistic recalculated on the most recent N periods, so you can see it change through time.",
     "EWMA volatility": "Volatility that weights recent returns more heavily (RiskMetrics λ = 0.94), so it reacts faster.",
-    "Sharpe ratio": "Annual return above the cash rate per unit of volatility. Above 1 is good.",
+    "Sharpe ratio": "Annual return above the cash rate per unit of volatility, using the arithmetic mean "
+                    "excess return. Above 1 is good. Annualised return compounds instead, so the two differ "
+                    "slightly for volatile series.",
     "Sortino ratio": "Like Sharpe, but only penalises downside volatility.",
     "Max drawdown": "The largest fall from a previous peak before a new high was made.",
     "Calmar ratio": "Annual return divided by the size of the maximum drawdown.",

@@ -37,8 +37,7 @@ limit = 1 if method != "covariance" else matrix.abs().max().max()
 
 with st.container(border=True):
     st.caption(f"{len(r)} {ui.FREQS[s.freq].lower()} {s.kind} returns · {r.index[0]:%d %b %Y} – {r.index[-1]:%d %b %Y}")
-    if s.freq == "D" and 0 < r.columns.str.endswith(".AX").sum() < len(r.columns):
-        st.caption("ASX and US markets close at different times. Weekly returns give fairer cross-market correlations.")
+    ui.close_time_caption(r.columns, s, groups)
     fig = px.imshow(matrix, text_auto=".2f" if len(order) <= 20 else False, aspect="auto",
                     color_continuous_scale=ui.diverging(), zmin=-limit, zmax=limit)
     ui.chart(fig.update_layout(coloraxis_colorbar=dict(thickness=10)), height=max(420, 30 * len(order)))

@@ -70,7 +70,18 @@ def freshness(ticker: str) -> pd.DataFrame:
 
 @st.cache_data(ttl=300)
 def snapshot(tickers: tuple[str, ...], as_of: date, total_return: bool = False) -> pd.DataFrame:
-    long = store.prices([*tickers, *indicators.BENCHMARKS], as_of - timedelta(days=420), as_of)
+    """Point-in-time metrics for the whole loaded universe, filtered to `tickers`.
+
+    Computing every instrument once and slicing costs the same as computing a large selection, and
+    means changing a sector or region filter reuses the cache instead of paying for it again.
+    """
+    return _universe_snapshot(as_of, total_return).query("ticker in @tickers")
+
+
+@st.cache_data(ttl=3600, show_spinner="Computing metrics for every instrument…")
+def _universe_snapshot(as_of: date, total_return: bool = False) -> pd.DataFrame:
+    long = store.prices(list(instruments().ticker) + list(indicators.BENCHMARKS),
+                        as_of - timedelta(days=420), as_of)
     return indicators.snapshot(long, total_return=total_return)
 
 
@@ -202,8 +213,36 @@ def price_matrix(tickers, s: Settings, field: str = "adj_close", groups: dict | 
     return wide[[t for t in tickers if t in wide]]
 
 
+def regions(groups: dict | None = None) -> dict[str, str]:
+    """Market region per column, so close-time alignment knows which series close after the ASX."""
+    by_ticker = instruments().set_index("ticker").exchange.to_dict()
+    if not groups:
+        return by_ticker
+    return {label: by_ticker.get(src if isinstance(src, str) else next(iter(src))) for label, src in groups.items()}
+
+
+def late_closers(columns, groups: dict | None = None) -> list[str]:
+    where = regions(groups)
+    return [c for c in columns if where.get(c) in rets.LATE_CLOSE]
+
+
+def close_time_caption(columns, s: Settings, groups: dict | None = None) -> None:
+    """Daily returns pair the ASX with a US session it had not seen yet, unless alignment is on."""
+    late = late_closers(columns, groups)
+    if s.freq != "D" or not late or len(late) == len(list(columns)):
+        return
+    if s.on("align_closes"):
+        st.caption(f"Close times aligned: {', '.join(late)} carried forward one day.")
+    else:
+        st.caption(f"{', '.join(late)} close after the ASX, so same-day returns understate how closely these move "
+                   "together — the ASX and S&P 500 read 0.10 daily against 0.60 once aligned. Switch on "
+                   "**Align market close times** in the sidebar, or use weekly returns.")
+
+
 def return_matrix(tickers, s: Settings, align: str = "inner", groups: dict | None = None) -> pd.DataFrame:
     prices = price_matrix(tickers, s, groups=groups)
+    if s.on("align_closes") and s.freq == "D":
+        prices = rets.align_closes(prices, regions(groups))
     minimum = min(MIN_OBS, max(5, len(prices) // 2))  # short stress windows need a lower bar than a 5-year range
     r = rets.compute(prices, s.freq, s.kind, align, minimum)
     if r.attrs.get("dropped"):

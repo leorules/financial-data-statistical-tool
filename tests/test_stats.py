@@ -181,3 +181,21 @@ def test_non_stationary_flags_levels_but_not_returns():
     flagged = stats.timeseries.non_stationary(frame)
     assert set(flagged) == {"level_a", "level_b"}, "price levels drift; returns do not"
     assert stats.timeseries.non_stationary(frame["returns"]) == []
+
+
+def test_align_closes_recovers_the_cross_market_relationship():
+    rng = np.random.default_rng(13)
+    idx = pd.bdate_range("2021-01-01", periods=800)
+    us = pd.Series(rng.normal(0, 0.01, 800), index=idx)
+    # The local market opens after Wall Street closes, so it follows yesterday's US move.
+    local = us.shift(1).fillna(0) * 0.8 + rng.normal(0, 0.004, 800)
+    prices = pd.DataFrame({"LOCAL": 100 * (1 + local).cumprod(), "US": 100 * (1 + us).cumprod()})
+    where = {"LOCAL": "Australia", "US": "United States"}
+
+    raw = prices.pct_change().dropna()
+    aligned = returns.align_closes(prices, where).pct_change().dropna()
+    assert abs(raw.LOCAL.corr(raw.US)) < 0.2, "same-day pairing hides the link"
+    assert aligned.LOCAL.corr(aligned.US) > 0.8, "carrying the US series forward recovers it"
+    # Local-only baskets are untouched.
+    only_local = returns.align_closes(prices[["LOCAL"]], where)
+    assert only_local.equals(prices[["LOCAL"]])

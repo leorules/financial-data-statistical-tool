@@ -10,8 +10,9 @@ def wealth(r: pd.Series) -> pd.Series:
 
 
 def drawdown(r: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
+    """Fall from the running peak. Dates before a series starts stay blank rather than showing 0%."""
     w = (1 + r.fillna(0)).cumprod()
-    return w / w.cummax() - 1
+    return (w / w.cummax() - 1).where(r.notna().cumsum() > 0)
 
 
 def ann_return(r: pd.Series, periods: int) -> float:

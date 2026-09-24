@@ -38,6 +38,7 @@ if len(data) < 20:
     st.warning(f"Only {len(data)} observations in this window. Tests and rolling statistics need more data than this, "
                "so treat anything below as indicative.", icon=":material/warning:")
 returns = data if series == "Returns" else ui.return_matrix(tickers, s, groups=groups)
+ui.close_time_caption(returns.columns, s, groups)
 prices = ui.series_matrix(tickers, s, "Price", groups)
 cols = list(data.columns)
 loaded = list(inst.ticker)

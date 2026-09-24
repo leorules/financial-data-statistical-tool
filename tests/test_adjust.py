@@ -92,7 +92,7 @@ def test_shrinkage_conditions_a_covariance_that_has_too_few_observations():
 # --- registry ---------------------------------------------------------------------------------------
 
 def test_every_adjustment_is_labelled_and_explained():
-    assert set(adjust.ADJUSTMENTS) == {"total_return", "live_cash", "hac", "fdr", "shrinkage"}
+    assert set(adjust.ADJUSTMENTS) == {"total_return", "live_cash", "align_closes", "hac", "fdr", "shrinkage"}
     assert all(label and why for label, why in adjust.ADJUSTMENTS.values())
     assert adjust.active({"hac", "fdr"}, "fdr") == ["False-discovery correction"]
     assert adjust.active(frozenset()) == []

@@ -28,6 +28,23 @@ def to_currency(wide: pd.DataFrame, currencies: dict[str, str], audusd: pd.Serie
     return out
 
 
+# Regions whose session ends after the Australian close, so their move on date D only reaches the ASX
+# on D+1. Asian markets close at or before Sydney, so they are left alone.
+LATE_CLOSE = {"United States", "Canada", "Mexico", "Brazil", "Global", "Europe", "United Kingdom", "Germany",
+              "France", "Italy", "Spain", "Netherlands", "Switzerland", "India"}
+
+
+def align_closes(wide: pd.DataFrame, regions: dict[str, str]) -> pd.DataFrame:
+    """Pair each date with the information the Australian market actually had.
+
+    Same-day daily returns compare the ASX's reaction to yesterday's Wall Street with today's US
+    session, which buries the relationship: ASX against the S&P reads 0.10 same-day and 0.60 once
+    the US series is carried forward a day.
+    """
+    late = [c for c in wide.columns if regions.get(c) in LATE_CLOSE]
+    return wide.assign(**{c: wide[c].shift(1) for c in late}) if late else wide
+
+
 def blend(wide: pd.DataFrame, weights: dict[str, float]) -> pd.Series:
     """Fixed-weight composite index from 100: the weighted average of component returns, compounded.
 
