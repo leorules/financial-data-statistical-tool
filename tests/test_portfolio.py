@@ -110,3 +110,18 @@ def test_a_portfolio_remembers_its_objective(temp_db):
     _, plain = portfolio.load("plain")
     assert (plain.objective_margin, plain.objective_years, plain.cpi_region) == (0.035, 10, "AUS")
     assert portfolio.load("never-saved")[1].objective_years == 10
+
+
+def test_compare_measures_every_series_from_a_common_start():
+    """Indexing each series to its own first date put a long history beside a short one and called
+    the totals comparable."""
+    dates = pd.bdate_range("2020-01-01", periods=300)
+    prices = pd.DataFrame({"OLD": np.linspace(100, 200, 300), "NEW": np.nan}, index=dates)
+    prices.loc[dates[150]:, "NEW"] = np.linspace(50, 60, 150)
+
+    starts = [prices[c].first_valid_index() for c in prices]
+    common = prices.loc[max(starts):]
+    rebased = common / common.bfill().iloc[0] * 100
+    assert rebased.index[0] == dates[150]
+    assert rebased.iloc[0].eq(100).all(), "both series start at 100 on the same date"
+    assert rebased["OLD"].iloc[-1] < 150, "the long series is measured over the shared window only"

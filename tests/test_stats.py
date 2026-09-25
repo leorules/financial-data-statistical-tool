@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 from scipy import stats as st
 
-from market import factors, inflation, returns, stats, tearsheet
+from market import factors, inflation, resample, returns, stats, tearsheet
 
 
 @pytest.fixture
@@ -279,3 +279,53 @@ def test_objective_needs_a_full_window(monkeypatch):
     assert inflation.objective(cpi.tail(20), years=10).empty
     assert np.isnan(inflation.met_rate(inflation.objective(cpi.tail(20), years=10)))
     assert not inflation.objective(cpi, years=5).empty, "a shorter horizon fits the same history"
+
+
+# --- guards for fixes that had none -------------------------------------------------------------
+
+def test_non_positive_prices_become_missing_rather_than_infinite_returns():
+    """Yahoo reports 0 for suspended microcaps; dividing by it gave infinities that poisoned the
+    standard deviation and raised warnings inside cross_section."""
+    dates = pd.bdate_range("2024-01-01", periods=10)
+    long = pd.DataFrame({"ticker": "SUS.AX", "date": dates,
+                         "adj_close": [10.0, 0.0, 0.0, 11.0, 12.0, 0.0, 13.0, 14.0, 15.0, 16.0]})
+    wide = returns.price_matrix(long)
+    assert wide["SUS.AX"].isna().sum() == 3
+    r = wide.pct_change(fill_method=None)
+    assert np.isfinite(r.to_numpy()[~np.isnan(r.to_numpy())]).all()
+    # Volume legitimately reaches zero and must not be masked.
+    volumes = long.assign(volume=[0.0] * 10)
+    assert returns.price_matrix(volumes, "volume")["SUS.AX"].eq(0).all()
+
+
+def test_drawdown_leaves_dates_before_a_series_starts_blank():
+    dates = pd.bdate_range("2024-01-01", periods=20)
+    r = pd.DataFrame({"early": 0.001, "late": np.nan}, index=dates)
+    r.loc[dates[10]:, "late"] = -0.002
+    dd = stats.risk.drawdown(r)
+    assert dd["late"].iloc[:10].isna().all(), "a series that did not exist was not at 0% drawdown"
+    assert dd["late"].iloc[10:].notna().all()
+    assert dd["early"].notna().all() and dd["early"].le(0).all()
+
+
+def test_the_vectorised_returns_match_a_per_column_loop():
+    """Overview builds returns for ~2,000 tickers; the fast form must agree with the slow one,
+    gaps included."""
+    dates = pd.bdate_range("2024-01-01", periods=40)
+    rng = np.random.default_rng(21)
+    wide = pd.DataFrame({c: 100 * np.cumprod(1 + rng.normal(0, 0.01, 40)) for c in "AB"}, index=dates)
+    wide.iloc[:5, 0] = np.nan          # a late start
+    wide.iloc[20:24, 1] = np.nan       # a trading halt
+    fast = wide.ffill().pct_change(fill_method=None).where(wide.notna())
+    slow = wide.apply(lambda col: col.dropna().pct_change())
+    assert fast.fillna(-99).round(12).equals(slow.fillna(-99).round(12))
+
+
+def test_resample_takes_the_last_price_and_sums_volume():
+    dates = pd.bdate_range("2024-01-01", periods=20)
+    frame = pd.DataFrame({"px": np.arange(1.0, 21.0), "vol": np.ones(20)}, index=dates)
+    weekly = resample.last(frame[["px"]], "W")
+    assert weekly.px.iloc[0] == 5.0, "the last observation of the week"
+    assert len(weekly) == 4
+    assert resample.total(frame[["vol"]], "W").vol.iloc[0] == 5.0, "volume accumulates"
+    assert resample.last(frame[["px"]], "D").equals(frame[["px"]]), "daily is a no-op"
