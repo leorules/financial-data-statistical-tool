@@ -91,8 +91,8 @@ the accumulation series, and the S&P 500's 2010–15 Sharpe rises by about 0.25 
 ## Layout
 - `market/`: data layer (`store`, `universe`, `ingest`, `providers/`), analytics (`indicators`, `returns`, `stats/`), `filters`, `sandbox`, and `ui` helpers
 - `pages/`: thin Streamlit pages
-- `tests/`: run with `.venv/Scripts/python -m pytest` (about 35s). `pytest -m "not slow"` skips the page
-  renders and takes 12s. Page tests build a small database in a temporary directory, so they work on a
+- `tests/`: run with `.venv/Scripts/python -m pytest` (151 tests, about 45s, 80% line coverage of `market/`).
+  `pytest -m "not slow"` skips the page renders and takes 12s. Page tests build a small database in a temporary directory, so they work on a
   fresh clone and never touch `data/`
 
 ## Inflation

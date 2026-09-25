@@ -20,6 +20,8 @@ PAGES = ["pages/overview.py", "pages/asset_classes.py", "pages/screener.py", "pa
          "pages/portfolio.py", "pages/correlation.py", "pages/statistics.py", "pages/scenarios.py",
          "pages/data_manager.py"]
 STATE_KEYS = ["range", "freq", "kind", "currency", "basket", "settings"]
+SECTIONS = re.findall(r'"([^"]+)":', (ROOT / "pages/statistics.py")
+                      .read_text(encoding="utf-8").split("SECTIONS = {")[1].split("}")[0])
 TIMEOUT = 120
 
 
@@ -56,6 +58,18 @@ def test_page_renders(session, page, adjustments_on):
     at = render(page, state)
     assert not at.exception, f"{page}: {at.exception[0].value if at.exception else ''}"
     assert at.title or at.markdown, f"{page} rendered nothing"
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("section", list(SECTIONS))
+def test_every_statistics_section_renders(session, section):
+    """Statistics picks one section with if/elif, so rendering the page only ever runs the default.
+    Without this, nine of its ten sections were never executed by any test."""
+    at = render("pages/statistics.py", session(False))
+    picker = [c for c in at.segmented_control if c.label == "Analysis"][0]
+    picker.set_value(section).run()
+    assert not at.exception, f"{section}: {at.exception[0].value if at.exception else ''}"
+    assert at.markdown, f"{section} rendered nothing"
 
 
 def test_the_pages_read_the_seeded_database(seeded_db):
